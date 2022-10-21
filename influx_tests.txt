@@ -1,0 +1,4 @@
+
+influx -execute 'select * from "gasmeter" ORDER BY DESC LIMIT 10' -database "youless"
+influx -execute 'select * from "gas_actuals" ORDER BY DESC LIMIT 10' -database "youless"
+influx -execute 'select * from "system"' -database LIMIT 10"youless"
