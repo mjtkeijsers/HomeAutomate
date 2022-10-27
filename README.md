@@ -20,7 +20,22 @@ The python files in this project are ran based on a crontab. See crontab.txt.
 The reason why energy needs just one step is in the different youless interface for electra and gas. Electra has a 'pwr' value which is actual consumption. Gas only has the meter reading hence to calculate actual you need to compare last 2 readings.
 
 To get started:
+
 -clone the project
--
+-install grafana as per your target system
+-install influx as per your target system
+-create the databases in influx (todo add the commands)
+-edit your crontab:
+--> crontab -e
+--> Copy the contact of crontab.txt and set the proper path.
+--> Test: wait for a few minutes and run the check commands in influx.txt from terminal
+
+-If that shows content; you have your data set up
+
+-Next is to configure grafana dashboard as per the json file in the repo.
+
+You should be good to go.
+
+Code created and distribted under MIT license, go and have fun.
 
 
