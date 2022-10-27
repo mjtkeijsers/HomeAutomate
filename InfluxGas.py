@@ -55,7 +55,7 @@ print(gas_n1_str)
 gas_n0_f = extract_value("gas",gas_n0_str)
 gas_n1_f = extract_value("gas",gas_n1_str)
         
-gas_m3_hr = (gas_n0_f - gas_n1_f) * 6.0 #To convert a 10 min sample to m3/h
+gas_m3_hr = (gas_n0_f - gas_n1_f) * 12.0 #To convert a 5 min sample to m3/h
 
 # take a timestamp for this measurement
 time = datetime.datetime.utcnow()

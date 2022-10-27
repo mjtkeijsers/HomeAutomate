@@ -1,17 +1,27 @@
-
- * * * * /home/mkeijser/git/HomeAutomate/YoulessElectra.py
+* * * * * /home/mkeijser/git/HomeAutomate/YoulessElectra.py
 
 1 * * * * /home/mkeijser/git/HomeAutomate/YoulessGas.py
+6 * * * * /home/mkeijser/git/HomeAutomate/YoulessGas.py
 11 * * * * /home/mkeijser/git/HomeAutomate/YoulessGas.py
+16 * * * * /home/mkeijser/git/HomeAutomate/YoulessGas.py
 21 * * * * /home/mkeijser/git/HomeAutomate/YoulessGas.py
+26 * * * * /home/mkeijser/git/HomeAutomate/YoulessGas.py
 31 * * * * /home/mkeijser/git/HomeAutomate/YoulessGas.py
+36 * * * * /home/mkeijser/git/HomeAutomate/YoulessGas.py
 41 * * * * /home/mkeijser/git/HomeAutomate/YoulessGas.py
+46 * * * * /home/mkeijser/git/HomeAutomate/YoulessGas.py
 51 * * * * /home/mkeijser/git/HomeAutomate/YoulessGas.py
+56 * * * * /home/mkeijser/git/HomeAutomate/YoulessGas.py
 
 2 * * * * /home/mkeijser/git/HomeAutomate/InfluxGas.py
+7 * * * * /home/mkeijser/git/HomeAutomate/InfluxGas.py
 12 * * * * /home/mkeijser/git/HomeAutomate/InfluxGas.py
+17 * * * * /home/mkeijser/git/HomeAutomate/InfluxGas.py
 22 * * * * /home/mkeijser/git/HomeAutomate/InfluxGas.py
+27 * * * * /home/mkeijser/git/HomeAutomate/InfluxGas.py
 32 * * * * /home/mkeijser/git/HomeAutomate/InfluxGas.py
+37 * * * * /home/mkeijser/git/HomeAutomate/InfluxGas.py
 42 * * * * /home/mkeijser/git/HomeAutomate/InfluxGas.py
+47 * * * * /home/mkeijser/git/HomeAutomate/InfluxGas.py
 52 * * * * /home/mkeijser/git/HomeAutomate/InfluxGas.py
-
+57 * * * * /home/mkeijser/git/HomeAutomate/InfluxGas.py
