@@ -12,10 +12,11 @@ This little project aims to build a dashboard on home gas and power use. When co
 
 -daily gas ('today' as live)
 
+-daily electra lowest value (what is 'leaking' all day, fridge, waterpump in pond etc)
+
 It requires a youless power monitor device to be connected to your gas and electra meter
 
-<img width="1473" alt="image" src="https://user-images.githubusercontent.com/34219584/198372407-6ebea8fd-ed9b-4717-8266-c5d42ebc67f6.png">
-
+<img width="1369" alt="image" src="https://user-images.githubusercontent.com/34219584/227767622-900c4bce-24ff-4f16-b749-0037e7d3f216.png">
 
 The python files in this project are ran based on a crontab. See crontab.txt. 
 
