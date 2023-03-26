@@ -1,4 +1,7 @@
+
 * * * * * /home/mkeijser/git/HomeAutomate/YoulessElectra.py
+* 1 * * * /home/mkeijser/git/HomeAutomate/InfluxLowestPower.py
+
 
 1 * * * * /home/mkeijser/git/HomeAutomate/YoulessGas.py
 6 * * * * /home/mkeijser/git/HomeAutomate/YoulessGas.py
