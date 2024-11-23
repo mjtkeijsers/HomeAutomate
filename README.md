@@ -57,11 +57,15 @@ To get started:
 -If that shows content; you have your data set up
 
 -Next is to configure grafana 
+
 --log in at grafana on localhost:3000
+
 --Select influxdb as datasource first, URL is to set to http://localhost:8086, database name is youless
+
 --load the dashboard as per the json file in the repo.
 
 You should be good to go. 
+
 --Can be you need to re-edit the panels to link the queries to influx properly (to be figured out what is missing in above if that is the case)
 
 Code created and distribted under MIT license, go and have fun.
