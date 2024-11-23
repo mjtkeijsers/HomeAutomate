@@ -38,17 +38,17 @@ To get started:
 
 -create the databases in influx
 
---influx
+--command: influx
 
---database create youless
+--command: database create youless
 
 -install the python libraries to access influx:
 
---sudo pip3 install influxdb
+--command:sudo pip3 install influxdb
 
 -edit your crontab:
 
---> crontab -e
+--> command:crontab -e
 
 --> Copy the contact of crontab.txt and set the proper path.
 
@@ -56,9 +56,13 @@ To get started:
 
 -If that shows content; you have your data set up
 
--Next is to configure grafana dashboard as per the json file in the repo.
+-Next is to configure grafana 
+--log in at grafana on localhost:3000
+--Select influxdb as datasource first, URL is to set to http://localhost:8086, database name is youless
+--load the dashboard as per the json file in the repo.
 
-You should be good to go.
+You should be good to go. 
+--Can be you need to re-edit the panels to link the queries to influx properly (to be figured out what is missing in above if that is the case)
 
 Code created and distribted under MIT license, go and have fun.
 
