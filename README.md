@@ -38,6 +38,7 @@ To get started:
 
 -create the databases in influx (todo add the commands)
 
+-install the python libraries to access influx: pip install influxdb-client
 -edit your crontab:
 
 --> crontab -e
