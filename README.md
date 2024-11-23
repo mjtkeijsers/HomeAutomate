@@ -37,10 +37,13 @@ To get started:
 -install influx as per your target system, see https://pimylifeup.com/raspberry-pi-influxdb/#using-influxdb-v1-on-your-raspberry-pi, for this project I used V1 of influx
 
 -create the databases in influx
+
 --influx
+
 --database create youless
 
 -install the python libraries to access influx:
+
 --sudo pip3 install influxdb
 
 -edit your crontab:
