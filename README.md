@@ -65,6 +65,7 @@ To get started:
 --load the dashboard as per the json file in the repo.
 
 You should be good to go. 
+--For the per day cost dashboard you need to update the queries to reflect your actual energy cost
 
 --Can be you need to re-edit the panels to link the queries to influx properly (to be figured out what is missing in above if that is the case)
 
