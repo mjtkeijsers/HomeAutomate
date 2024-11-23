@@ -32,7 +32,7 @@ To get started:
 
 -clone the project
 
--install grafana as per your target system
+-install grafana as per your target system, see https://pimylifeup.com/raspberry-pi-grafana/
 
 -install influx as per your target system
 
