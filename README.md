@@ -34,7 +34,7 @@ To get started:
 
 -install grafana as per your target system, see https://pimylifeup.com/raspberry-pi-grafana/
 
--install influx as per your target system
+-install influx as per your target system, see https://pimylifeup.com/raspberry-pi-influxdb/#using-influxdb-v1-on-your-raspberry-pi, for this project I used V1 of influx
 
 -create the databases in influx (todo add the commands)
 
