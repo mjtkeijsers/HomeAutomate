@@ -1,8 +1,8 @@
 # HomeAutomate
 
-Home Automation on Raspberry pi build around Youles, Influx, Grafana, Python, cron
+Home Automation on Raspberry pi build around **Youles**, Influx, Grafana, Python, cron
 
-This little project aims to build a dashboard on home gas and power use. When complete it shows 4 graphs:
+This little project aims to build a dashboard on home gas and power use. When complete it shows 5 graphs:
 
 -live power (refresh 1 minute)
 
@@ -14,7 +14,7 @@ This little project aims to build a dashboard on home gas and power use. When co
 
 -daily electra lowest value (what is 'leaking' all day, fridge, waterpump in pond etc)
 
-It requires a youless power monitor device to be connected to your gas and electra meter
+It requires a **youless power monitor device** to be connected to your gas and electra meter
 
 <img width="1369" alt="image" src="https://user-images.githubusercontent.com/34219584/227767622-900c4bce-24ff-4f16-b749-0037e7d3f216.png">
 
