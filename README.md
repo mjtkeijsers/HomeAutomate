@@ -1,5 +1,7 @@
 # Basic Power monitor
 
+Last Update Novermber 2024: After a crash of my raspberry recreated and step by step corrected manual. A tip if you use raspberry, use a high end SD card rather as the cheapest you can find. If you have a PI and a youless in your network the whole setup will take you about 2 hours.
+
 Home Automation on Raspberry pi build around **Youless** (see https://www.youless.nl/home.html), Influx, Grafana, Python, cron
 
 This little project aims to build a dashboard on home gas and power use. When complete it shows 5 graphs:
@@ -65,6 +67,7 @@ To get started:
 --load the dashboard as per the json file in the repo.
 
 You should be good to go. 
+
 --For the per day cost dashboard you need to update the queries to reflect your actual energy cost
 
 --Can be you need to re-edit the panels to link the queries to influx properly (to be figured out what is missing in above if that is the case)
