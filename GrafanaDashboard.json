@@ -26,12 +26,11 @@
   "graphTooltip": 0,
   "id": 1,
   "links": [],
-  "liveNow": false,
   "panels": [
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "l_XLJEWRk"
+        "uid": "de4t940anylfkb"
       },
       "fieldConfig": {
         "defaults": {
@@ -39,11 +38,13 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 0,
             "gradientMode": "opacity",
@@ -52,6 +53,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "smooth",
             "lineWidth": 1,
             "pointSize": 5,
@@ -108,11 +110,12 @@
           "sort": "none"
         }
       },
+      "pluginVersion": "11.3.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "l_XLJEWRk"
+            "uid": "de4t940anylfkb"
           },
           "groupBy": [],
           "measurement": "system",
@@ -134,13 +137,12 @@
         }
       ],
       "title": "Electra Actueel",
-      "transformations": [],
       "type": "timeseries"
     },
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "l_XLJEWRk"
+        "uid": "de4t940anylfkb"
       },
       "description": "",
       "fieldConfig": {
@@ -149,11 +151,14 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
+            "axisGridShow": true,
             "axisLabel": "",
             "axisPlacement": "auto",
             "barAlignment": 0,
+            "barWidthFactor": 0.6,
             "drawStyle": "line",
             "fillOpacity": 50,
             "gradientMode": "opacity",
@@ -162,6 +167,7 @@
               "tooltip": false,
               "viz": false
             },
+            "insertNulls": false,
             "lineInterpolation": "smooth",
             "lineWidth": 2,
             "pointSize": 1,
@@ -218,20 +224,19 @@
           "sort": "none"
         }
       },
+      "pluginVersion": "11.3.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "l_XLJEWRk"
+            "uid": "de4t940anylfkb"
           },
           "groupBy": [],
           "measurement": "gas_actuals",
           "orderByTime": "ASC",
           "policy": "default",
-          "query": "SELECT \"gas_m3_hr\" FROM \"gas_actuals\" WHERE $timeFilter",
-          "rawQuery": true,
           "refId": "A",
-          "resultFormat": "table",
+          "resultFormat": "time_series",
           "select": [
             [
               {
@@ -246,13 +251,12 @@
         }
       ],
       "title": "Gas Actueel",
-      "transformations": [],
       "type": "timeseries"
     },
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "l_XLJEWRk"
+        "uid": "de4t940anylfkb"
       },
       "fieldConfig": {
         "defaults": {
@@ -260,6 +264,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -274,6 +279,9 @@
             "lineWidth": 1,
             "scaleDistribution": {
               "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
           },
           "mappings": [],
@@ -304,6 +312,7 @@
       "options": {
         "barRadius": 0,
         "barWidth": 0.97,
+        "fullHighlight": false,
         "groupWidth": 0.7,
         "legend": {
           "calcs": [],
@@ -321,16 +330,32 @@
         "xTickLabelRotation": 45,
         "xTickLabelSpacing": 0
       },
+      "pluginVersion": "11.3.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "l_XLJEWRk"
+            "uid": "de4t940anylfkb"
           },
-          "query": "SELECT ((SUM(\"pwr\" )/ 60  / 1000) * 0.25)  FROM \"system\" WHERE $timeFilter group by time(1d)",
+          "groupBy": [],
+          "measurement": "gasmeter",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT ((SUM(\"pwr\" )/ 60  / 1000) * 0.28)  FROM \"system\" WHERE $timeFilter group by time(1d)",
           "rawQuery": true,
           "refId": "A",
-          "resultFormat": "time_series"
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "gas"
+                ],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": []
         }
       ],
       "timeFrom": "14d",
@@ -340,7 +365,7 @@
     {
       "datasource": {
         "type": "influxdb",
-        "uid": "l_XLJEWRk"
+        "uid": "de4t940anylfkb"
       },
       "fieldConfig": {
         "defaults": {
@@ -348,6 +373,7 @@
             "mode": "palette-classic"
           },
           "custom": {
+            "axisBorderShow": false,
             "axisCenteredZero": false,
             "axisColorMode": "text",
             "axisLabel": "",
@@ -362,6 +388,9 @@
             "lineWidth": 1,
             "scaleDistribution": {
               "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
             }
           },
           "mappings": [],
@@ -392,6 +421,7 @@
       "options": {
         "barRadius": 0,
         "barWidth": 0.97,
+        "fullHighlight": false,
         "groupWidth": 0.7,
         "legend": {
           "calcs": [],
@@ -409,13 +439,14 @@
         "xTickLabelRotation": 45,
         "xTickLabelSpacing": 0
       },
+      "pluginVersion": "11.3.1",
       "targets": [
         {
           "datasource": {
             "type": "influxdb",
-            "uid": "l_XLJEWRk"
+            "uid": "de4t940anylfkb"
           },
-          "query": "SELECT ((SUM(\"gas_m3_hr\")/12) * 0.88) FROM \"gas_actuals\" WHERE $timeFilter group by time(1d)",
+          "query": "SELECT ((SUM(\"gas_m3_hr\")/12) * 1.28) FROM \"gas_actuals\" WHERE $timeFilter group by time(1d)",
           "rawQuery": true,
           "refId": "A",
           "resultFormat": "time_series"
@@ -424,11 +455,118 @@
       "timeFrom": "14d",
       "title": "Gas per dag",
       "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "influxdb",
+        "uid": "de4t940anylfkb"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "barWidthFactor": 0.6,
+            "drawStyle": "line",
+            "fillOpacity": 0,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "insertNulls": false,
+            "lineInterpolation": "smooth",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 19
+      },
+      "id": 9,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.3.1",
+      "targets": [
+        {
+          "groupBy": [],
+          "measurement": "sluip",
+          "orderByTime": "ASC",
+          "policy": "default",
+          "query": "SELECT \"low\" FROM \"sluip\" WHERE $timeFilter ",
+          "rawQuery": true,
+          "refId": "A",
+          "resultFormat": "time_series",
+          "select": [
+            [
+              {
+                "params": [
+                  "low"
+                ],
+                "type": "field"
+              }
+            ]
+          ],
+          "tags": []
+        }
+      ],
+      "timeFrom": "14d",
+      "title": "Sluipverbruik",
+      "type": "timeseries"
     }
   ],
+  "preload": false,
   "refresh": "1m",
-  "schemaVersion": 37,
-  "style": "dark",
+  "schemaVersion": 40,
   "tags": [],
   "templating": {
     "list": []
@@ -441,6 +579,6 @@
   "timezone": "",
   "title": "Laagheidseweg 15A Energie",
   "uid": "uhXObPWgk",
-  "version": 32,
+  "version": 16,
   "weekStart": ""
 }
