@@ -1,6 +1,6 @@
-# HomeAutomate
+# Basic Power monitor
 
-Home Automation on Raspberry pi build around **Youles**, Influx, Grafana, Python, cron
+Home Automation on Raspberry pi build around **Youless** (see https://www.youless.nl/home.html), Influx, Grafana, Python, cron
 
 This little project aims to build a dashboard on home gas and power use. When complete it shows 5 graphs:
 
