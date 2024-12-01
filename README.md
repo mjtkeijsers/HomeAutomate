@@ -1,6 +1,8 @@
 # Basic Power monitor
 
-Last Update Novermber 2024: After a crash of my raspberry recreated and step by step corrected manual. A tip if you use raspberry, use a high end SD card rather as the cheapest you can find. If you have a PI and a youless in your network the whole setup will take you about 2 hours.
+01 December 2024: Added first pretty raw version of reading out my home NEST thermostat. Follewed manual and used code snippets from https://www.wouternieuwerth.nl/controlling-a-google-nest-thermostat-with-python/. Next step cleanup. 
+
+28 Novermber 2024: After a crash of my raspberry recreated and step by step corrected manual. A tip if you use raspberry, use a high end SD card rather as the cheapest you can find. If you have a PI and a youless in your network the whole setup will take you about 2 hours.
 
 Home Automation on Raspberry pi build around **Youless** (see https://www.youless.nl/home.html), Influx, Grafana, Python, cron
 
