@@ -1,7 +1,7 @@
 import os
 import requests
 import time
-import myflux
+import NestStore
 
 def load_google_config(filename):
     # Get the home directory of the user
@@ -172,7 +172,7 @@ if __name__ == '__main__':
             setpoint = response_json['traits']['sdm.devices.traits.ThermostatTemperatureSetpoint']['heatCelsius']
             print('Setpoint:',setpoint)
 
-            myflux.store_to_influx(setpoint, temperature)
+            NestStore.store_to_influx(setpoint, temperature)
 
         if (token_age == 45):
             #Renew the access token which expires around 60 minutes.
