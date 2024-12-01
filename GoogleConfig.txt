@@ -1,1 +1,7 @@
+refresh_token , token-here
+
+project_id    , p-id-here
+client_id     , c-id-here
+client_secret , secret-here
+redirect_uri  , uri-here
 
