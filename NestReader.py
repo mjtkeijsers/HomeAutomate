@@ -156,6 +156,20 @@ if __name__ == '__main__':
 
             response = requests.get(url_get_device, headers=headers)
 
+            #but this can fail like this: 
+            #Thermo Data = {'error': {'code': 500, 'message': 'Internal error encountered.', 'status': 'INTERNAL'}}
+
+            #if it works OK:
+            #Thermo Data = {'name': 'enterprises/xxxetc', 'type': 'sdm.devices.types.THERMOSTAT', 'assignee': 'enterprises/xxETC', 
+            # 'traits': {'sdm.devices.traits.Info': {'customName': ''}, 'sdm.devices.traits.Humidity': {'ambientHumidityPercent': 49}, 
+            # 'sdm.devices.traits.Connectivity': {'status': 'ONLINE'}, 'sdm.devices.traits.Fan': {}, 'sdm.devices.traits.ThermostatMode':
+            # {'mode': 'HEAT', 'availableModes': ['HEAT', 'OFF']}, 'sdm.devices.traits.ThermostatEco': {'availableModes': ['OFF', 'MANUAL_ECO'], 
+            # 'mode': 'OFF', 'heatCelsius': 9.4444, 'coolCelsius': 24.44443}, 'sdm.devices.traits.ThermostatHvac': {'status': 'OFF'}, 
+            #'sdm.devices.traits.Settings': {'temperatureScale': 'CELSIUS'}, 'sdm.devices.traits.ThermostatTemperatureSetpoint': 
+            #{'heatCelsius': 15.94652}, 'sdm.devices.traits.Temperature': {'ambientTemperatureCelsius': 18.73}}, 
+            #'parentRelations': [{'parent': 'enterprises/xxEtc', 'displayName': 'Eetkamer'}]}
+    
+            
             response_json = response.json()
 
             print('')
