@@ -2,6 +2,9 @@
 influx -execute 'select * from "gasmeter" ORDER BY DESC LIMIT 10' -database "youless"
 influx -execute 'select * from "gas_actuals" ORDER BY DESC LIMIT 10' -database "youless"
 influx -execute 'select * from "system" ORDER BY DESC' -database "youless"
+influx -execute 'select * from "temperature" ORDER BY DESC' -database "youless"
+
 
 #Clean a set of measurements
 influx -execute 'DROP SERIES FROM "gas_actuals"' -database "youless"
+influx -execute 'DROP SERIES FROM "temperature"' -database "youless"
