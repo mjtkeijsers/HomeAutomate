@@ -154,37 +154,49 @@ if __name__ == '__main__':
                 'Authorization': access_token,
                 }
 
-            response = requests.get(url_get_device, headers=headers)
+            try:
+                response = requests.get(url_get_device, headers=headers)
+                response.raise_for_status()
 
-            #but this can fail like this: 
-            #Thermo Data = {'error': {'code': 500, 'message': 'Internal error encountered.', 'status': 'INTERNAL'}}
-
-            #if it works OK:
-            #Thermo Data = {'name': 'enterprises/xxxetc', 'type': 'sdm.devices.types.THERMOSTAT', 'assignee': 'enterprises/xxETC', 
-            # 'traits': {'sdm.devices.traits.Info': {'customName': ''}, 'sdm.devices.traits.Humidity': {'ambientHumidityPercent': 49}, 
-            # 'sdm.devices.traits.Connectivity': {'status': 'ONLINE'}, 'sdm.devices.traits.Fan': {}, 'sdm.devices.traits.ThermostatMode':
-            # {'mode': 'HEAT', 'availableModes': ['HEAT', 'OFF']}, 'sdm.devices.traits.ThermostatEco': {'availableModes': ['OFF', 'MANUAL_ECO'], 
-            # 'mode': 'OFF', 'heatCelsius': 9.4444, 'coolCelsius': 24.44443}, 'sdm.devices.traits.ThermostatHvac': {'status': 'OFF'}, 
-            #'sdm.devices.traits.Settings': {'temperatureScale': 'CELSIUS'}, 'sdm.devices.traits.ThermostatTemperatureSetpoint': 
-            #{'heatCelsius': 15.94652}, 'sdm.devices.traits.Temperature': {'ambientTemperatureCelsius': 18.73}}, 
-            #'parentRelations': [{'parent': 'enterprises/xxEtc', 'displayName': 'Eetkamer'}]}
-    
             
-            response_json = response.json()
+                #but this can fail like this: 
+                #Thermo Data = {'error': {'code': 500, 'message': 'Internal error encountered.', 'status': 'INTERNAL'}}
+    
+                #if it works OK:
+                #Thermo Data = {'name': 'enterprises/xxxetc', 'type': 'sdm.devices.types.THERMOSTAT', 'assignee': 'enterprises/xxETC', 
+                # 'traits': {'sdm.devices.traits.Info': {'customName': ''}, 'sdm.devices.traits.Humidity': {'ambientHumidityPercent': 49}, 
+                # 'sdm.devices.traits.Connectivity': {'status': 'ONLINE'}, 'sdm.devices.traits.Fan': {}, 'sdm.devices.traits.ThermostatMode':
+                # {'mode': 'HEAT', 'availableModes': ['HEAT', 'OFF']}, 'sdm.devices.traits.ThermostatEco': {'availableModes': ['OFF', 'MANUAL_ECO'], 
+                # 'mode': 'OFF', 'heatCelsius': 9.4444, 'coolCelsius': 24.44443}, 'sdm.devices.traits.ThermostatHvac': {'status': 'OFF'}, 
+                #'sdm.devices.traits.Settings': {'temperatureScale': 'CELSIUS'}, 'sdm.devices.traits.ThermostatTemperatureSetpoint': 
+                #{'heatCelsius': 15.94652}, 'sdm.devices.traits.Temperature': {'ambientTemperatureCelsius': 18.73}}, 
+                #'parentRelations': [{'parent': 'enterprises/xxEtc', 'displayName': 'Eetkamer'}]}
+        
+                
+                response_json = response.json()
+    
+                print('')
+                print('Thermo Data = ' + str(response_json))
+                print('')
+                
+                temperature = response_json['traits']['sdm.devices.traits.Temperature']['ambientTemperatureCelsius']
+                print('Temperature:', temperature)
+    
+                setpoint = response_json['traits']['sdm.devices.traits.ThermostatTemperatureSetpoint']['heatCelsius']
+                print('Setpoint:',setpoint)
+    
+                NestStore.store_to_influx(setpoint, temperature)
 
-            print('')
-            print('Thermo Data = ' + str(response_json))
-            print('')
+            except requests.exceptions.HTTPError as errh:
+                print ("Http Error:",errh)
+            except requests.exceptions.ConnectionError as errc:
+                print ("Error Connecting:",errc)
+            except requests.exceptions.Timeout as errt:
+                print ("Timeout Error:",errt)
+            except requests.exceptions.RequestException as err:
+                print ("OOps: Something Else",err)
 
-
-            temperature = response_json['traits']['sdm.devices.traits.Temperature']['ambientTemperatureCelsius']
-            print('Temperature:', temperature)
-
-            setpoint = response_json['traits']['sdm.devices.traits.ThermostatTemperatureSetpoint']['heatCelsius']
-            print('Setpoint:',setpoint)
-
-            NestStore.store_to_influx(setpoint, temperature)
-
+        
         if (token_age == 45):
             #Renew the access token which expires around 60 minutes.
             token_age = 0
@@ -196,13 +208,23 @@ if __name__ == '__main__':
                 ('refresh_token', refresh_token),
                 ('grant_type', 'refresh_token'),
             )
+            try:
+                response = requests.post('https://www.googleapis.com/oauth2/v4/token', params=params)
+                response.raise_for_status()
 
-            response = requests.post('https://www.googleapis.com/oauth2/v4/token', params=params)
+                response_json = response.json()
+                access_token = response_json['token_type'] + ' ' + response_json['access_token']
+                print('')
+                print('')
 
-            response_json = response.json()
-            access_token = response_json['token_type'] + ' ' + response_json['access_token']
-            print('')
-            print('')
+            except requests.exceptions.HTTPError as errh:
+                print ("Http Error:",errh)
+            except requests.exceptions.ConnectionError as errc:
+                print ("Error Connecting:",errc)
+            except requests.exceptions.Timeout as errt:
+                print ("Timeout Error:",errt)
+            except requests.exceptions.RequestException as err:
+                print ("OOps: Something Else",err)
 
 
         #One Minute, 60 seconds
