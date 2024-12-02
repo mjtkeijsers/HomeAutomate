@@ -198,10 +198,11 @@ if __name__ == '__main__':
                 print ("OOps: Something Else",err)
 
         
-        if (token_age == 45):
+        if (token_age > 45):
             #Renew the access token which expires around 60 minutes.
-            token_age = 0
-
+            # By using > we have 15 attempts to refresh as age is only
+            # reset when communication succeeds.
+      
             print('renew access token')
             params = (
                 ('client_id', client_id),
@@ -215,6 +216,8 @@ if __name__ == '__main__':
 
                 response_json = response.json()
                 access_token = response_json['token_type'] + ' ' + response_json['access_token']
+                token_age = 0
+
                 print('')
                 print('')
 
