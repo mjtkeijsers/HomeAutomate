@@ -21,6 +21,9 @@ def store_to_influx(setpoint, temperature):
     ifclient = InfluxDBClient(ifhost,ifport,ifuser,ifpass,ifdb)
 
 
+    setpoint = float(setpoint)
+    temperature = float(temperature)
+
     # format the data as a single measurement for influx
     body = [
         {

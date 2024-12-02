@@ -68,9 +68,6 @@ if __name__ == '__main__':
     config = read_csv_to_dict('GoogleConfig.txt')
     print(config)
 
-    myflux.store_to_influx(99,88)
-
-
     project_id    = config['project_id']
     client_id     = config['client_id']
     client_secret = config['client_secret']
@@ -86,7 +83,7 @@ if __name__ == '__main__':
     url = 'https://nestservices.google.com/partnerconnections/'+project_id+'/auth?redirect_uri='+redirect_uri+'&access_type=offline&prompt=consent&client_id='+client_id+'&response_type=code&scope=https://www.googleapis.com/auth/sdm.service'
     print("Go to this URL to log in:")
     print(url)
-    exit(0)
+    #exit(0)
 
 
     params = (
@@ -148,7 +145,7 @@ if __name__ == '__main__':
         temp_delay = temp_delay + 1
 
         #Once per 10 minutes suffices as the thermostat seems to refresh to cloud only once per 15 mins
-        if (temp_delay == 10):
+        if (temp_delay == 2):
             temp_delay = 0;
             url_get_device = 'https://smartdevicemanagement.googleapis.com/v1/' + device_0_name
 
@@ -195,5 +192,5 @@ if __name__ == '__main__':
 
 
         #One Minute, 60 seconds
-        time.sleep(1)
+        time.sleep(60)
 
