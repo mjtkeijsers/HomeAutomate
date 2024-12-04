@@ -2,6 +2,7 @@ import os
 import requests
 import time
 import NestStore
+import datetime
 
 def load_google_config(filename):
     # Get the home directory of the user
@@ -139,7 +140,7 @@ if __name__ == '__main__':
 
 
     token_age  = 0
-    temp_delay = 0
+    temp_delay = 1
 
     while (1):
         token_age  = token_age  + 1
@@ -156,6 +157,7 @@ if __name__ == '__main__':
                 }
 
             try:
+                print("Go for next measurement at" + str(datetime.datetime.now()))
                 response = requests.get(url_get_device, headers=headers)
                 response.raise_for_status()
 
@@ -175,10 +177,7 @@ if __name__ == '__main__':
         
                 
                 response_json = response.json()
-    
-                print('')
-                print('Thermo Data = ' + str(response_json))
-                print('')
+                response.raise_for_status()
                 
                 temperature = response_json['traits']['sdm.devices.traits.Temperature']['ambientTemperatureCelsius']
                 print('Temperature:', temperature)
@@ -189,18 +188,18 @@ if __name__ == '__main__':
                 NestStore.store_to_influx(setpoint, temperature)
 
             except requests.exceptions.HTTPError as errh:
-                print ("Http Error:",errh)
+                print ("NEST Http Error:",errh)
             except requests.exceptions.ConnectionError as errc:
-                print ("Error Connecting:",errc)
+                print ("NEST Error Connecting:",errc)
             except requests.exceptions.Timeout as errt:
-                print ("Timeout Error:",errt)
+                print ("NEST Timeout Error:",errt)
             except requests.exceptions.RequestException as err:
-                print ("OOps: Something Else",err)
+                print ("NEST OOps: Something Else",err)
 
         
-        if (token_age > 45):
+        if (token_age > 6):
             #Renew the access token which expires around 60 minutes.
-            # By using > we have 15 attempts to refresh as age is only
+            # By using > we have multiple attempts to refresh as age is only
             # reset when communication succeeds.
       
             print('renew access token')
