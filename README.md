@@ -1,8 +1,8 @@
 # Basic Power monitor
 
-Home Automation on Raspberry pi build around **Youless** (see https://www.youless.nl/home.html), Influx, Grafana, Python, cron
+Home Automation on Raspberry pi build around **Youless** (see https://www.youless.nl/home.html), Influx, Grafana, Python, cron and **NEST** Thermostat.
 
-This little project aims to build a dashboard on home gas and power use. When complete it shows 5 graphs:
+This little project aims to build a dashboard on home gas and power use. When complete it shows these graphs:
 
 -live power (refresh 1 minute)
 
@@ -13,6 +13,8 @@ This little project aims to build a dashboard on home gas and power use. When co
 -daily elektra ('today' as live)
 
 -daily gas ('today' as live)
+
+-OPTIONAL, Readout of setpoint and measured temperature NEST thermostat
 
 -daily electra lowest value (what is 'leaking' all day, fridge, waterpump in pond etc)
 
