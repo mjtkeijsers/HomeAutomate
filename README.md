@@ -14,6 +14,8 @@ This little project aims to build a dashboard on home gas and power use. When co
 
 -live gas (refresh 5 min)
 
+-live a NEST thermostat reading of setpoint and temperature 
+
 -daily elektra ('today' as live)
 
 -daily gas ('today' as live)
@@ -22,9 +24,10 @@ This little project aims to build a dashboard on home gas and power use. When co
 
 It requires a **youless power monitor device** to be connected to your gas and electra meter
 
-<img width="1369" alt="image" src="https://user-images.githubusercontent.com/34219584/227767622-900c4bce-24ff-4f16-b749-0037e7d3f216.png">
+<img width="1505" alt="image" src="https://github.com/user-attachments/assets/56caf1c0-faa0-46ac-910c-3beb5dedb711">
 
-The python files in this project are ran based on a crontab. See crontab.txt. 
+
+The python files (excluding NEST read out at the moment) in this project are ran based on a crontab. See crontab.txt. 
 
 -energy every minute
 
@@ -59,6 +62,10 @@ To get started:
 --> Copy the contact of crontab.txt and set the proper path.
 
 --> Test: wait for a few minutes and run the check commands in influx.txt from terminal
+
+-In case you also want to show the panel with NEST thermostat data:
+
+-->python -u NestReader.py > logfile.txt&, which will write a sample every 2 minutes to influx.
 
 -If that shows content; you have your data set up
 
