@@ -1,11 +1,5 @@
 # Basic Power monitor
 
-04 December 2024, with NestReader.py you have a neat very minmimal piece of code to monitor NEST.
-
-01 December 2024: Added first pretty raw version of reading out my home NEST thermostat. Follewed manual and used code snippets from https://www.wouternieuwerth.nl/controlling-a-google-nest-thermostat-with-python/. Next step cleanup. 
-
-28 Novermber 2024: After a crash of my raspberry recreated and step by step corrected manual. A tip if you use raspberry, use a high end SD card rather as the cheapest you can find. If you have a PI and a youless in your network the whole setup will take you about 2 hours.
-
 Home Automation on Raspberry pi build around **Youless** (see https://www.youless.nl/home.html), Influx, Grafana, Python, cron
 
 This little project aims to build a dashboard on home gas and power use. When complete it shows 5 graphs:
@@ -84,5 +78,13 @@ You should be good to go.
 --Can be you need to re-edit the panels to link the queries to influx properly (to be figured out what is missing in above if that is the case)
 
 Code created and distribted under MIT license, go and have fun.
+
+Change History:
+
+04 December 2024, with NestReader.py you have a neat very minmimal piece of code to monitor NEST.
+
+01 December 2024: Added first pretty raw version of reading out my home NEST thermostat. Follewed manual and used code snippets from https://www.wouternieuwerth.nl/controlling-a-google-nest-thermostat-with-python/. Next step cleanup. 
+
+28 Novermber 2024: After a crash of my raspberry recreated and step by step corrected manual. A tip if you use raspberry, use a high end SD card rather as the cheapest you can find. If you have a PI and a youless in your network the whole setup will take you about 2 hours.
 
 
