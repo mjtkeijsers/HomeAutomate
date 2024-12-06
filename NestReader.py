@@ -3,43 +3,7 @@ import requests
 import time
 import NestStore
 import datetime
-
-def load_google_config(filename):
-    # Get the home directory of the user
-    home_directory = os.path.expanduser('~')
-    # Construct the full path to the file
-    file_path = os.path.join(home_directory, filename)
-
-    key_value_pairs = []
-
-    try:
-        with open(file_path, 'r') as file:
-            # Read the content of the file
-            content = file.read()
-
-            # Split the content by commas, strip whitespace, carriage returns, and line feeds
-            pairs = [pair.strip().replace('\r', '').replace('\n', '') for pair in content.split(',')]
-
-            print(pairs)
-
-            for pair in pairs:
-
-                key_value = pair.split('=')
-                print(key_value)
-                print(len(key_value))
-                if len(key_value) == 2:
-                    key, value = key_value
-                    key_value_pairs.append((key.strip(), value.strip()))
-                    print('c')
-
-    except FileNotFoundError:
-        print(f"File {filename} not found in the home directory.")
-
-    return key_value_pairs
-
-
 import csv
-import os
 
 # Define the path to the file in the user's home directory
 file_path = os.path.expanduser('~/GoogleConfig.txt')
