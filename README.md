@@ -1,28 +1,29 @@
 # Basic Power monitor
 
-01 December 2024: Added first pretty raw version of reading out my home NEST thermostat. Follewed manual and used code snippets from https://www.wouternieuwerth.nl/controlling-a-google-nest-thermostat-with-python/. Next step cleanup. 
+Home Automation on Raspberry pi build around **Youless** (see https://www.youless.nl/home.html), Influx, Grafana, Python, cron and **NEST** Thermostat.
 
-28 Novermber 2024: After a crash of my raspberry recreated and step by step corrected manual. A tip if you use raspberry, use a high end SD card rather as the cheapest you can find. If you have a PI and a youless in your network the whole setup will take you about 2 hours.
-
-Home Automation on Raspberry pi build around **Youless** (see https://www.youless.nl/home.html), Influx, Grafana, Python, cron
-
-This little project aims to build a dashboard on home gas and power use. When complete it shows 5 graphs:
+This little project aims to build a dashboard on home gas and power use. When complete it shows these graphs:
 
 -live power (refresh 1 minute)
 
 -live gas (refresh 5 min)
 
+-live a NEST thermostat reading of setpoint and temperature 
+
 -daily elektra ('today' as live)
 
 -daily gas ('today' as live)
 
+-OPTIONAL, Readout of setpoint and measured temperature NEST thermostat
+
 -daily electra lowest value (what is 'leaking' all day, fridge, waterpump in pond etc)
 
-It requires a **youless power monitor device** to be connected to your gas and electra meter
+It requires a **youless power monitor device** to be connected to your gas and electra meter. For the temoerature graphs you need a NEST thermostat and set up the OAuth2 protocol as specified in Dec 1 comment above. 
 
-<img width="1369" alt="image" src="https://user-images.githubusercontent.com/34219584/227767622-900c4bce-24ff-4f16-b749-0037e7d3f216.png">
+<img width="1505" alt="image" src="https://github.com/user-attachments/assets/56caf1c0-faa0-46ac-910c-3beb5dedb711">
 
-The python files in this project are ran based on a crontab. See crontab.txt. 
+
+The python files (excluding NEST read out at the moment) in this project are ran based on a crontab. See crontab.txt. 
 
 -energy every minute
 
@@ -58,6 +59,10 @@ To get started:
 
 --> Test: wait for a few minutes and run the check commands in influx.txt from terminal
 
+-In case you also want to show the panel with NEST thermostat data:
+
+-->python -u NestReader.py > logfile.txt&, which will write a sample every 2 minutes to influx.
+
 -If that shows content; you have your data set up
 
 -Next is to configure grafana 
@@ -75,5 +80,13 @@ You should be good to go.
 --Can be you need to re-edit the panels to link the queries to influx properly (to be figured out what is missing in above if that is the case)
 
 Code created and distribted under MIT license, go and have fun.
+
+Change History:
+
+04 December 2024, with NestReader.py you have a neat very minmimal piece of code to monitor NEST.
+
+01 December 2024: Added first pretty raw version of reading out my home NEST thermostat. Follewed manual and used code snippets from https://www.wouternieuwerth.nl/controlling-a-google-nest-thermostat-with-python/. Next step cleanup. 
+
+28 Novermber 2024: After a crash of my raspberry recreated and step by step corrected manual. A tip if you use raspberry, use a high end SD card rather as the cheapest you can find. If you have a PI and a youless in your network the whole setup will take you about 2 hours.
 
 
