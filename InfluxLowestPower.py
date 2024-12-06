@@ -56,7 +56,7 @@ while (s < date.today()):
     body = [
         {
             "measurement": "sluip",
-            "time": s.strftime("%d-%m-%Y 13:%M:%S"),
+            "time": datetime.datetime.utcnow(),
             "fields": {
                 "low": int(res)
             }
@@ -67,6 +67,7 @@ while (s < date.today()):
     print (body)
 
     i = ifclient.write_points(body)
+    print(i)
     
     s = s + timedelta(days = 1)
   
