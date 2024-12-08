@@ -1,30 +1,11 @@
+import InfluxWriter
+import ConfigReader
+
 import openmeteo_requests
 import datetime
 import requests_cache
 from retry_requests import retry
-import OutSideWeatherStore
 import time
-import os
-import csv
-
-def read_csv_to_dict(filename):
-
-    
-    # Get the home directory of the user
-    home_directory = os.path.expanduser('~')
-    # Construct the full path to the file
-    file_path = os.path.join(home_directory, filename)
-
-
-    config_dict = {}
-    with open(file_path, 'r') as file:
-        reader = csv.reader(file)
-        for row in reader:
-            if row:  # Ensure the row is not empty
-                key, value = row[0].strip(), row[1].strip()
-                config_dict[key] = value
-    return config_dict
-
 
 # Setup the Open-Meteo API client with cache and retry on error
 cache_session = requests_cache.CachedSession('.cache', expire_after = 3600)
@@ -35,13 +16,10 @@ openmeteo = openmeteo_requests.Client(session = retry_session)
 # The order of variables in hourly or daily is important to assign them correctly below
 url = "https://api.open-meteo.com/v1/forecast"
 
+config = ConfigReader.read_csv_from_home_to_dict("LocationConfig.txt")
 
-config = read_csv_to_dict("LocationConfig.txt")
-
-print(config)
-
-latitude    = config['latitude']
-longtitude  = config['longtitude']
+latitude   = config['latitude']
+longtitude = config['longtitude']
 
 params = {
 	"latitude": latitude,
@@ -50,7 +28,6 @@ params = {
 	"timezone": "auto",
 	"past_days": 0
 }
-
 
 while(1):
 	try:
@@ -67,7 +44,8 @@ while(1):
 
 		current_temperature_2m = current.Variables(0).Value()
 		
-		OutSideWeatherStore.store_to_influx(current_temperature_2m)
+		InfluxWriter.write_to_influx("outside_temperature","measured", current_temperature_2m)
+		
 
 	except Exception as err:
 		print ("OutsideWeather: Exception",err)

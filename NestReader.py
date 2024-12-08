@@ -1,37 +1,15 @@
-import os
 import requests
 import time
-import NestStore
+import InfluxWriter
 import datetime
-import csv
-
-# Define the path to the file in the user's home directory
-file_path = os.path.expanduser('~/GoogleConfig.txt')
-
-# Function to read and process the CSV file
-def read_csv_to_dict(filename):
-
-    
-    # Get the home directory of the user
-    home_directory = os.path.expanduser('~')
-    # Construct the full path to the file
-    file_path = os.path.join(home_directory, filename)
-
-
-    config_dict = {}
-    with open(file_path, 'r') as file:
-        reader = csv.reader(file)
-        for row in reader:
-            if row:  # Ensure the row is not empty
-                key, value = row[0].strip(), row[1].strip()
-                config_dict[key] = value
-    return config_dict
-
+import ConfigReader
 
 
 # Example usage
 if __name__ == '__main__':
-    config = read_csv_to_dict('GoogleConfig.txt')
+
+    config = ConfigReader.read_csv_from_home_to_dict('GoogleConfig.txt')
+    
     print(config)
 
     project_id    = config['project_id']
@@ -148,8 +126,8 @@ if __name__ == '__main__':
     
                 setpoint = response_json['traits']['sdm.devices.traits.ThermostatTemperatureSetpoint']['heatCelsius']
                 print('Setpoint:',setpoint)
-    
-                NestStore.store_to_influx(setpoint, temperature)
+        
+                InfluxWriter.write_to_influx("temperature", "setpoint", setpoint, "measured", temperature)
 
             except requests.exceptions.HTTPError as errh:
                 print ("NEST Http Error:",errh)
