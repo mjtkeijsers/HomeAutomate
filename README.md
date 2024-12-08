@@ -8,15 +8,13 @@ This little project aims to build a dashboard on home gas and power use. When co
 
 -live gas (refresh 5 min)
 
--live a NEST thermostat reading of setpoint and temperature 
-
 -daily elektra ('today' as live)
 
 -daily gas ('today' as live)
 
 -OPTIONAL, Readout of setpoint and measured temperature NEST thermostat
 
--OPTIONAL, The temperature outside. Do note that the location where to obtain temperature in Outsideweather.py needs to be updated to your location.
+-OPTIONAL, The temperature outside. Do note that the location where to obtain temperature in Outsideweather.py needs to be updated to your location. You can do this by putting a file name LocationConfig.txt in the users home directory with a value for longtitude and lattitude (as per demo file LocationConfig.txt)
 
 -daily electra lowest value (what is 'leaking' all day, fridge, waterpump in pond etc)
 
