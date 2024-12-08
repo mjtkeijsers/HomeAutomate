@@ -1,4 +1,4 @@
 
 latitude  , <your location>
-longitude , <your location> 
+longtitude , <your location> 
 
