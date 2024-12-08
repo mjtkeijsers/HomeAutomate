@@ -18,7 +18,7 @@ This little project aims to build a dashboard on home gas and power use. When co
 
 -daily electra lowest value (what is 'leaking' all day, fridge, waterpump in pond etc)
 
-It requires a **youless power monitor device** to be connected to your gas and electra meter. For the temoerature graphs you need a NEST thermostat and set up the OAuth2 protocol as specified in Dec 1 comment above. 
+It requires a **youless power monitor device** to be connected to your gas and electra meter. For the temoerature graphs you need a NEST thermostat and set up the OAuth2 protocol as specified in Dec 1 comment below. 
 
 <img width="1505" alt="image" src="https://github.com/user-attachments/assets/56caf1c0-faa0-46ac-910c-3beb5dedb711">
 
