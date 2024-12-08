@@ -16,6 +16,8 @@ This little project aims to build a dashboard on home gas and power use. When co
 
 -OPTIONAL, Readout of setpoint and measured temperature NEST thermostat
 
+-OPTIONAL, The temperature outside. Do note that the location where to obtain temperature in Outsideweather.py needs to be updated to your location.
+
 -daily electra lowest value (what is 'leaking' all day, fridge, waterpump in pond etc)
 
 It requires a **youless power monitor device** to be connected to your gas and electra meter. For the temoerature graphs you need a NEST thermostat and set up the OAuth2 protocol as specified in Dec 1 comment below. 
