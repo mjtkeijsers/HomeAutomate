@@ -82,6 +82,7 @@ You should be good to go.
 Code created and distribted under MIT license, go and have fun.
 
 Change History:
+08 December 2024, Added outside weather to dashboard, to do, lots of code cleanups as not very clean at the moment :-D
 
 04 December 2024, with NestReader.py you have a neat very minmimal piece of code to monitor NEST.
 
