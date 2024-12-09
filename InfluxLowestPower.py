@@ -6,7 +6,7 @@ import requests
 import json
 from datetime import date, timedelta
 import time
-
+import InfluxWriter
 
 
 from influxdb import InfluxDBClient
@@ -51,24 +51,8 @@ while (s < date.today()):
     res = min(res_evening, res_night)
     print(str(s) + " = " + str(res))    
     
+    InfluxWriter.write_to_influx("sluip", "low", int(res))
 
-    # format the data as a single measurement for influx
-    body = [
-        {
-            "measurement": "sluip",
-            "time": datetime.datetime.utcnow(),
-            "fields": {
-                "low": int(res)
-            }
-        }
-    ]
-
-
-    print (body)
-
-    i = ifclient.write_points(body)
-    print(i)
-    
     s = s + timedelta(days = 1)
   
     

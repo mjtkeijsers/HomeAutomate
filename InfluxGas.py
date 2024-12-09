@@ -4,6 +4,7 @@ import datetime
 import psutil
 import requests
 import json
+import InfluxWriter
 
 from influxdb import InfluxDBClient
 
@@ -57,22 +58,6 @@ gas_n1_f = extract_value("gas",gas_n1_str)
         
 gas_m3_hr = (gas_n0_f - gas_n1_f) * 12.0 #To convert a 5 min sample to m3/h
 
-# take a timestamp for this measurement
-time = datetime.datetime.utcnow()
-print (time)
-# format the data as a single measurement for influx
-body = [
-    {
-        "measurement": measurement_name,
-        "time": time,
-        "fields": {
-            "gas_m3_hr": gas_m3_hr
-        }
-    }
-]
+InfluxWriter.write_to_influx(measurement_name, "gas_m3_hr", gas_m3_hr)
 
-print (body)
-
-# write the measurement
-ifclient.write_points(body)
 
