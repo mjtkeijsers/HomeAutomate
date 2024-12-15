@@ -88,7 +88,8 @@ if __name__ == '__main__':
         token_age  = token_age  + 1
         temp_delay = temp_delay + 1
 
-        #Once per 10 minutes suffices as the thermostat seems to refresh to cloud only once per 15 mins
+        #Once per 10 minutes would suffice as the thermostat seems to refresh to cloud only once per 15 mins
+        # for now we use 2 minutes to expedite learning and testing.
         if (temp_delay == 2):
             temp_delay = 0;
             url_get_device = 'https://smartdevicemanagement.googleapis.com/v1/' + device_0_name
