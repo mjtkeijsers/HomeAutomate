@@ -51,6 +51,18 @@ if __name__ == '__main__':
     print('')
     print('')
 
+    #If you did follow setup at google properly (and paid teh required 5 USD) then at initial run of
+    # this script you will get the URL above AND an error below ;-).
+    #
+    # Use your browser, go to the URL and follow the steps untill you end up with google trying to
+    #  reach your programmed redirect_uri (with server not found as most likely its a non existing
+    #  page. 
+    #
+    # That is 'dont care' as inside that web URI you find a section starting with 4/, like
+    #  4/0AanRRrtVApeftt7xIcFdVUekGgby236Hu1wXLkiR3ejaDstmBFvYNmSDGT9d_oLeCw
+    #  You need to copy that value and put it in your GoogleConfig.txt file. After that is done
+    #  properly restart the script and it will start its endless measuring loop!
+
     access_token = response_json['token_type'] + ' ' + str(response_json['access_token'])
     print('Access token: ' + access_token)
     refresh_token = response_json['refresh_token']
