@@ -137,6 +137,8 @@ if __name__ == '__main__':
                 temperature = response_json['traits']['sdm.devices.traits.Temperature']['ambientTemperatureCelsius']
                 print('Temperature:', temperature)
     
+                #But note, the thermostat can be switched 'off' in which case the below will raise also an exception
+                # poor mans solution; ignore all and dont store any data, handle and ignore the exception.
                 setpoint = response_json['traits']['sdm.devices.traits.ThermostatTemperatureSetpoint']['heatCelsius']
                 print('Setpoint:',setpoint)
         
@@ -150,6 +152,9 @@ if __name__ == '__main__':
                 print ("NEST Timeout Error:",errt)
             except requests.exceptions.RequestException as err:
                 print ("NEST OOps: Something Else",err)
+            except Exception as err:
+                print ("NEST Parse: Beyond a connection issue",err)
+                
 
         
         if (token_age > 6):
