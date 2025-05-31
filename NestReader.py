@@ -136,12 +136,19 @@ if __name__ == '__main__':
                 
                 temperature = response_json['traits']['sdm.devices.traits.Temperature']['ambientTemperatureCelsius']
                 print('Temperature:', temperature)
+                
+                        
+                therm_status = response_json['traits']['sdm.devices.traits.ThermostatMode']['mode']
+                if (therm_status != "OFF"):
     
-                #But note, the thermostat can be switched 'off' in which case the below will raise also an exception
-                # poor mans solution; ignore all and dont store any data, handle and ignore the exception.
-                setpoint = response_json['traits']['sdm.devices.traits.ThermostatTemperatureSetpoint']['heatCelsius']
-                print('Setpoint:',setpoint)
-        
+                    #The thermostat can be switched 'off' in which case the below will raise also an exception
+                    # poor mans solution; ignore all and dont store any data, handle and ignore the exception.
+                    setpoint = response_json['traits']['sdm.devices.traits.ThermostatTemperatureSetpoint']['heatCelsius']
+                    print('Setpoint:',setpoint)
+                else:
+                    print("Thermostat set to Off, default setpoint to 0.0")
+                    setpoint = 0.0
+                    
                 InfluxWriter.write_to_influx("temperature", "setpoint", setpoint, "measured", temperature)
 
             except requests.exceptions.HTTPError as errh:
