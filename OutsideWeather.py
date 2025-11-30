@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 import InfluxWriter
 import ConfigReader
 
