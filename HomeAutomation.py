@@ -6,6 +6,7 @@ Maintains database interactions with InfluxDB 2.x and Grafana compatibility.
 """
 
 import requests
+import re
 import InfluxWriter
 import ConfigReader
 import openmeteo_requests
@@ -133,15 +134,24 @@ def youless_gas_task():
         res = requests.get("http://youless/e", timeout=10)
         
         gas = None
-        for line in res.text.split(','):
-            # gas = gasmeter
-            if "gas" in line.lower():
-                x = line.rfind(':') + 2  # For ';' and ' '
-                y = len(line)
-                try:
-                    gas = float(line[x:y])
-                except ValueError:
-                    logger.warning(f"Could not parse gas value: {line[x:y]}")
+        # Try regex first to be tolerant to spacing/formatting (e.g. 'gas:123.45' or 'gas: 123.45')
+        m = re.search(r'gas\s*[:=]\s*([-+]?\d*\.?\d+)', res.text, re.IGNORECASE)
+        if m:
+            try:
+                gas = float(m.group(1))
+            except ValueError:
+                logger.warning(f"Could not parse gas value from regex: {m.group(1)}")
+        else:
+            # Fallback: legacy splitting by comma
+            for line in res.text.split(','):
+                # gas = gasmeter
+                if "gas" in line.lower():
+                    x = line.rfind(':') + 2  # For ';' and ' '
+                    y = len(line)
+                    try:
+                        gas = float(line[x:y])
+                    except ValueError:
+                        logger.warning(f"Could not parse gas value: {line[x:y]}")
         
         if gas is not None:
             measurement_name = "gasmeter"
@@ -319,12 +329,12 @@ def setup_schedule():
     # Youless Gas: every 5 minutes at specific seconds
     # (minutes 1, 6, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56)
     for minute in [1, 6, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56]:
-        schedule.every().hour.do(youless_gas_task).tag(f"youless_gas_{minute}")
+        schedule.every().hour.at(f":{minute:02d}").do(youless_gas_task).tag(f"youless_gas_{minute}")
     
     # Influx Gas: every 5 minutes at specific seconds
     # (minutes 2, 7, 12, 17, 22, 27, 32, 37, 42, 47, 52, 57)
     for minute in [2, 7, 12, 17, 22, 27, 32, 37, 42, 47, 52, 57]:
-        schedule.every().hour.do(influx_gas_task).tag(f"influx_gas_{minute}")
+        schedule.every().hour.at(f":{minute:02d}").do(influx_gas_task).tag(f"influx_gas_{minute}")
     
     # Outside Weather: every 5 minutes
     schedule.every(5).minutes.do(outside_weather_task)
