@@ -2,7 +2,7 @@
 """
 HomeAutomation.py - Consolidated home automation application
 Merges all cron-scheduled tasks into a single forever loop with proper timing.
-Maintains database interactions with InfluxDB and Grafana compatibility.
+Maintains database interactions with InfluxDB 2.x and Grafana compatibility.
 """
 
 import requests
@@ -17,7 +17,8 @@ import time
 import sys
 import logging
 import schedule
-from influxdb import InfluxDBClient
+from influxdb_client import InfluxDBClient
+from influxdb_client.client.query_api import SYNCHRONOUS
 
 # ============================================================================
 # LOGGING CONFIGURATION
@@ -35,11 +36,10 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # INFLUX CONFIGURATION (shared across all functions)
 # ============================================================================
-INFLUX_USER = "grafana"
-INFLUX_PASS = "grafana"
-INFLUX_DB = "youless"
-INFLUX_HOST = "127.0.0.1"
-INFLUX_PORT = 8086
+INFLUX_URL = "http://127.0.0.1:8086"
+INFLUX_TOKEN = "your-api-token-here"  # Generate this in InfluxDB UI
+INFLUX_ORG = "your-org-here"
+INFLUX_BUCKET = "youless"
 
 # ============================================================================
 # WEATHER API SETUP (Open-Meteo)
@@ -78,8 +78,8 @@ def extract_value_with_end(magic, in_string, end_char='}'):
 
 
 def get_influx_client():
-    """Get InfluxDB client connection."""
-    return InfluxDBClient(INFLUX_HOST, INFLUX_PORT, INFLUX_USER, INFLUX_PASS, INFLUX_DB)
+    """Get InfluxDB 2.x client connection."""
+    return InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
 
 
 # ============================================================================
@@ -164,33 +164,38 @@ def influx_gas_task():
         measurement_name = "gas_actuals"
         
         # Connect to influx
-        ifclient = get_influx_client()
+        client = get_influx_client()
+        query_api = client.query_api(query_type=SYNCHRONOUS)
         
-        # Read back last 2 most recent measurements
-        query = 'select * from "gasmeter" ORDER BY DESC LIMIT 2'
-        r = ifclient.query(query)
+        # Read back last 2 most recent measurements using Flux query language
+        flux_query = f'''
+            from(bucket: "{INFLUX_BUCKET}")
+            |> range(start: -1h)
+            |> filter(fn: (r) => r._measurement == "gasmeter")
+            |> sort(columns: ["_time"], desc: true)
+            |> limit(n: 2)
+        '''
         
-        s = "Result: {0}".format(r)
-        
-        # Remove special characters to ensure no conversion errors
-        for character in '[({})]':
-            s = s.replace(character, '')
-        
-        tokens = s.split(",")
-        
-        if len(tokens) >= 5:
-            gas_n0_str = tokens[2]
-            gas_n1_str = tokens[4]
+        try:
+            result = query_api.query(flux_query, org=INFLUX_ORG)
             
-            gas_n0_f = extract_value("gas", gas_n0_str)
-            gas_n1_f = extract_value("gas", gas_n1_str)
+            gas_values = []
+            for table in result:
+                for record in table.records:
+                    gas_values.append(record.get_value())
             
-            gas_m3_hr = (gas_n0_f - gas_n1_f) * 12.0  # Convert 5 min sample to m3/h
-            
-            InfluxWriter.write_to_influx(measurement_name, "gas_m3_hr", gas_m3_hr)
-            logger.info(f"Influx Gas: gas_m3_hr={gas_m3_hr}")
-        else:
-            logger.warning("Influx Gas: Insufficient data from query")
+            if len(gas_values) >= 2:
+                gas_n0_f = gas_values[0]
+                gas_n1_f = gas_values[1]
+                
+                gas_m3_hr = (gas_n0_f - gas_n1_f) * 12.0  # Convert 5 min sample to m3/h
+                
+                InfluxWriter.write_to_influx(measurement_name, "gas_m3_hr", gas_m3_hr)
+                logger.info(f"Influx Gas: gas_m3_hr={gas_m3_hr}")
+            else:
+                logger.warning(f"Influx Gas: Insufficient data from query (got {len(gas_values)} values)")
+        finally:
+            client.close()
     
     except Exception as err:
         logger.error(f"Influx Gas task failed: {err}")
@@ -205,38 +210,61 @@ def influx_lowest_power_task():
         logger.info("Running Influx Lowest Power task...")
         
         # Connect to influx
-        ifclient = get_influx_client()
+        client = get_influx_client()
+        query_api = client.query_api(query_type=SYNCHRONOUS)
         
         # Start from yesterday
         s = date.today() - timedelta(days=1)
         
-        while s < date.today():
-            s2 = s + timedelta(days=1)
-            
-            # Query for evening minimum (8 PM - 11:59 PM)
-            query_evening = (
-                f"SELECT MIN(pwr) from system WHERE "
-                f"time > '{s}T20:00:00.000000Z' AND "
-                f"time < '{s}T23:59:00.000000Z' ORDER BY DESC"
-            )
-            r = ifclient.query(query_evening)
-            res_evening = extract_value_with_end("min", f"Result: {r}")
-            
-            # Query for night minimum (12:01 AM - 5:00 AM next day)
-            query_night = (
-                f"SELECT MIN(pwr) from system WHERE "
-                f"time > '{s2}T00:01:00.000000Z' AND "
-                f"time < '{s2}T05:00:00.000000Z' ORDER BY DESC"
-            )
-            r = ifclient.query(query_night)
-            res_night = extract_value_with_end("min", f"Result: {r}")
-            
-            res = min(res_evening, res_night)
-            logger.info(f"Lowest Power for {s}: {res}W (evening: {res_evening}W, night: {res_night}W)")
-            
-            InfluxWriter.write_to_influx("sluip", "low", int(res))
-            
-            s = s + timedelta(days=1)
+        try:
+            while s < date.today():
+                s2 = s + timedelta(days=1)
+                
+                # Query for evening minimum (8 PM - 11:59 PM)
+                flux_query_evening = f'''
+                    from(bucket: "{INFLUX_BUCKET}")
+                    |> range(start: {s}T20:00:00Z, stop: {s}T23:59:00Z)
+                    |> filter(fn: (r) => r._measurement == "system" and r._field == "pwr")
+                    |> min()
+                '''
+                
+                # Query for night minimum (12:01 AM - 5:00 AM next day)
+                flux_query_night = f'''
+                    from(bucket: "{INFLUX_BUCKET}")
+                    |> range(start: {s2}T00:01:00Z, stop: {s2}T05:00:00Z)
+                    |> filter(fn: (r) => r._measurement == "system" and r._field == "pwr")
+                    |> min()
+                '''
+                
+                res_evening = 0.0
+                res_night = 0.0
+                
+                # Get evening minimum
+                try:
+                    result_evening = query_api.query(flux_query_evening, org=INFLUX_ORG)
+                    for table in result_evening:
+                        for record in table.records:
+                            res_evening = record.get_value()
+                except Exception as e:
+                    logger.warning(f"Could not retrieve evening minimum: {e}")
+                
+                # Get night minimum
+                try:
+                    result_night = query_api.query(flux_query_night, org=INFLUX_ORG)
+                    for table in result_night:
+                        for record in table.records:
+                            res_night = record.get_value()
+                except Exception as e:
+                    logger.warning(f"Could not retrieve night minimum: {e}")
+                
+                res = min(res_evening, res_night) if (res_evening and res_night) else max(res_evening, res_night)
+                logger.info(f"Lowest Power for {s}: {res}W (evening: {res_evening}W, night: {res_night}W)")
+                
+                InfluxWriter.write_to_influx("sluip", "low", int(res))
+                
+                s = s + timedelta(days=1)
+        finally:
+            client.close()
     
     except Exception as err:
         logger.error(f"Influx Lowest Power task failed: {err}")
