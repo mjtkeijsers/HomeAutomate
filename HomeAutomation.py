@@ -18,7 +18,7 @@ import sys
 import logging
 import schedule
 from influxdb_client import InfluxDBClient
-from influxdb_client.client.query_api import SYNCHRONOUS
+from influxdb_client.client.write_api import SYNCHRONOUS
 
 # ============================================================================
 # LOGGING CONFIGURATION
@@ -165,7 +165,7 @@ def influx_gas_task():
         
         # Connect to influx
         client = get_influx_client()
-        query_api = client.query_api(query_type=SYNCHRONOUS)
+        query_api = client.query_api()
         
         # Read back last 2 most recent measurements using Flux query language
         flux_query = f'''
@@ -211,7 +211,7 @@ def influx_lowest_power_task():
         
         # Connect to influx
         client = get_influx_client()
-        query_api = client.query_api(query_type=SYNCHRONOUS)
+        query_api = client.query_api()
         
         # Start from yesterday
         s = date.today() - timedelta(days=1)
