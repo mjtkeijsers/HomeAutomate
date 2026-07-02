@@ -1,23 +1,22 @@
 
 import datetime
-
-from influxdb import InfluxDBClient
+from influxdb_client import InfluxDBClient
+from influxdb_client.client.write_api import SYNCHRONOUS
 
 def write_to_influx(measurement_name, key1, value1, key2=None, value2=None, key3=None, value3=None):
 
-    # influx configuration - edit these
-    ifuser = "grafana"
-    ifpass = "grafana"
-    ifdb   = "youless"
-    ifhost = "127.0.0.1"
-    ifport = 8086
+    # influxdb 2.x configuration - edit these
+    ifurl = "http://127.0.0.1:8086"
+    iftoken = "your-api-token-here"  # Generate this in InfluxDB UI
+    iforg = "your-org-here"
+    ifbucket = "youless"
 
     # take a timestamp for this measurement
     time = datetime.datetime.utcnow()
 
     # connect to influx
-    ifclient = InfluxDBClient(ifhost,ifport,ifuser,ifpass,ifdb)
-
+    client = InfluxDBClient(url=ifurl, token=iftoken, org=iforg)
+    write_api = client.write_api(write_options=SYNCHRONOUS)
 
     # format the data as a single measurement for influx
     
@@ -72,6 +71,9 @@ def write_to_influx(measurement_name, key1, value1, key2=None, value2=None, key3
     
     print (body)
 
-    # write the measurement
-    ifclient.write_points(body)
+    # write the measurement using InfluxDB 2.x API
+    try:
+        write_api.write(bucket=ifbucket, org=iforg, record=body)
+    finally:
+        client.close()
 
