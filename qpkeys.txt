@@ -1,0 +1,2 @@
+APP_KEY = <Key>
+APP_SECRET = <Secret>
