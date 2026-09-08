@@ -1,0 +1,5 @@
+{
+    "device_id": "bf5d2c67588a82b07abcde",
+    "local_key": "abc123def456gh78",
+    "ip_address": "192.168.1.50"
+}
