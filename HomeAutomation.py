@@ -18,6 +18,8 @@ import time
 import sys
 import logging
 import schedule
+import base64
+import os
 from influxdb_client import InfluxDBClient
 from influxdb_client.client.write_api import SYNCHRONOUS
 
@@ -41,6 +43,47 @@ INFLUX_URL = "http://127.0.0.1:8086"
 INFLUX_TOKEN = "your-api-token-here"  # Generate this in InfluxDB UI
 INFLUX_ORG = "your-org-here"
 INFLUX_BUCKET = "youless"
+
+# ============================================================================
+# QINGPING API CONFIGURATION (for Qingping sensor)
+# ============================================================================
+def load_qingping_keys(filename="qpkeys.txt"):
+    """Load APP_KEY and APP_SECRET from qpkeys.txt file."""
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    key_file_path = os.path.join(script_dir, filename)
+
+    if not os.path.exists(key_file_path):
+        logger.warning(f"Qingping keys file not found at {key_file_path}. Qingping task will be skipped.")
+        return None, None
+
+    app_key = None
+    app_secret = None
+
+    with open(key_file_path, "r", encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" in line:
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+
+                if key == "APP_KEY":
+                    app_key = value
+                elif key == "APP_SECRET":
+                    app_secret = value
+
+    if not app_key or not app_secret:
+        logger.warning("Qingping keys not properly configured. Qingping task will be skipped.")
+        return None, None
+
+    return app_key, app_secret
+
+QP_APP_KEY, QP_APP_SECRET = load_qingping_keys()
+
+QP_TOKEN_URL = "https://oauth.cleargrass.com/oauth2/token"
+QP_API_URL = "https://apis.cleargrass.com/v1/apis/devices"
 
 # ============================================================================
 # WEATHER API SETUP (Open-Meteo)
@@ -318,6 +361,82 @@ def outside_weather_task():
 
 
 # ============================================================================
+# QINGPING SENSOR TASK (every 5 minutes)
+# ============================================================================
+def qingping_sensor_task():
+    """Fetch Qingping sensor data (CO2, humidity, temperature) and write to InfluxDB."""
+    if QP_APP_KEY is None or QP_APP_SECRET is None:
+        logger.warning("Qingping sensor task skipped: API keys not configured")
+        return
+
+    try:
+        logger.info("Running Qingping Sensor task...")
+        
+        # Get access token
+        credentials = f"{QP_APP_KEY}:{QP_APP_SECRET}"
+        encoded_credentials = base64.b64encode(credentials.encode()).decode()
+
+        headers = {
+            "Authorization": f"Basic {encoded_credentials}",
+            "Content-Type": "application/x-www-form-urlencoded"
+        }
+        body = {
+            "grant_type": "client_credentials",
+            "scope": "device_full_access"
+        }
+
+        token_response = requests.post(QP_TOKEN_URL, headers=headers, data=body, timeout=10)
+        if token_response.status_code != 200:
+            logger.error(f"Qingping Token Error [{token_response.status_code}]: {token_response.text}")
+            return
+
+        access_token = token_response.json().get("access_token")
+        if not access_token:
+            logger.error("Qingping: No access token received")
+            return
+
+        # Fetch sensor data
+        headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": "application/json"
+        }
+        params = {"timestamp": int(time.time() * 1000)}
+
+        api_response = requests.get(QP_API_URL, headers=headers, params=params, timeout=10)
+
+        if api_response.status_code == 200:
+            data = api_response.json()
+            devices = data.get("devices", [])
+
+            if not devices:
+                logger.warning("Qingping: No devices found linked to this account")
+                return
+
+            for dev in devices:
+                info = dev.get("info", {})
+                device_name = info.get("name", "Unknown")
+                mac = info.get("mac", "Unknown")
+                sensor_data = dev.get("data", {})
+
+                co2 = sensor_data.get("co2", {}).get("value")
+                temp = sensor_data.get("temperature", {}).get("value")
+                humidity = sensor_data.get("humidity", {}).get("value")
+
+                if co2 is not None and temp is not None and humidity is not None:
+                    # Write all three values to InfluxDB in a single measurement
+                    InfluxWriter.write_to_influx("qingping", "co2", co2, "temperature", temp, "humidity", humidity)
+                    logger.info(f"Qingping Sensor [{device_name}]: CO2={co2}ppm, Temp={temp}°C, Humidity={humidity}%")
+                else:
+                    logger.warning(f"Qingping Sensor [{device_name}]: Missing values (CO2={co2}, Temp={temp}, Humidity={humidity})")
+
+        else:
+            logger.error(f"Qingping API Error [{api_response.status_code}]: {api_response.text}")
+
+    except Exception as err:
+        logger.error(f"Qingping Sensor task failed: {err}")
+
+
+# ============================================================================
 # SCHEDULING SETUP
 # ============================================================================
 def setup_schedule():
@@ -338,6 +457,9 @@ def setup_schedule():
     
     # Outside Weather: every 5 minutes
     schedule.every(5).minutes.do(outside_weather_task)
+    
+    # Qingping Sensor: every 5 minutes
+    schedule.every(5).minutes.do(qingping_sensor_task)
     
     # Influx Lowest Power: daily at 01:00
     schedule.every().day.at("01:00").do(influx_lowest_power_task)
