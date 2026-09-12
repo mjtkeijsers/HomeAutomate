@@ -13,7 +13,7 @@ import openmeteo_requests
 import requests_cache
 from retry_requests import retry
 import datetime
-from datetime import date, timedelta
+from datetime import date, timedelta, timezone
 import time
 import sys
 import logging
@@ -22,6 +22,7 @@ import base64
 import os
 from influxdb_client import InfluxDBClient
 from influxdb_client.client.write_api import SYNCHRONOUS
+from functools import wraps
 
 # ============================================================================
 # LOGGING CONFIGURATION
@@ -39,10 +40,18 @@ logger = logging.getLogger(__name__)
 # ============================================================================
 # INFLUX CONFIGURATION (shared across all functions)
 # ============================================================================
-INFLUX_URL = "http://127.0.0.1:8086"
-INFLUX_TOKEN = "XXX"  # Generate this in InfluxDB UI
-INFLUX_ORG = "YY" #Whatever
-INFLUX_BUCKET = "youless"
+INFLUX_URL = os.getenv("INFLUX_URL", "http://127.0.0.1:8086")
+INFLUX_TOKEN = os.getenv("INFLUX_TOKEN", "")
+INFLUX_ORG = os.getenv("INFLUX_ORG", "ASML")
+INFLUX_BUCKET = os.getenv("INFLUX_BUCKET", "youless")
+
+# Validate that critical config is present
+if not INFLUX_TOKEN:
+    logger.critical("INFLUX_TOKEN environment variable not set. Exiting.")
+    sys.exit(1)
+
+# InfluxDB client connection pool (persistent)
+_influx_client = None
 
 # ============================================================================
 # QINGPING API CONFIGURATION (for Qingping sensor)
@@ -80,6 +89,7 @@ def load_qingping_keys(filename="qpkeys.txt"):
 
     return app_key, app_secret
 
+
 QP_APP_KEY, QP_APP_SECRET = load_qingping_keys()
 
 QP_TOKEN_URL = "https://oauth.cleargrass.com/oauth2/token"
@@ -95,73 +105,87 @@ openmeteo = openmeteo_requests.Client(session=retry_session)
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
-def extract_value(magic, in_string):
-    """Extract a float value from a formatted string."""
-    value_f = 0.0
-    if magic in in_string.lower():
-        x = in_string.rfind(':') + 2  # For ';' and ' '
-        y = len(in_string)
-        try:
-            value_f = float(in_string[x:y])
-        except ValueError:
-            logger.warning(f"Could not convert value to float: {in_string[x:y]}")
-    return value_f
-
-
-def extract_value_with_end(magic, in_string, end_char='}'): 
-    """Extract a float value from a formatted string with specific end character."""
-    value_f = 0.0
-    if magic in in_string.lower():
-        x = in_string.rfind(':') + 2  # For ';' and ' '
-        y = in_string.rfind(end_char) - 2  # For } and ]
-        try:
-            value_f = float(in_string[x:y])
-        except ValueError:
-            logger.warning(f"Could not convert value to float: {in_string[x:y]}")
-    return value_f
-
-
 def get_influx_client():
-    """Get InfluxDB 2.x client connection."""
-    return InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
+    """Get InfluxDB 2.x client connection (connection pooling)."""
+    global _influx_client
+    if _influx_client is None:
+        _influx_client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
+    return _influx_client
+
+
+def close_influx_client():
+    """Close the persistent InfluxDB client connection."""
+    global _influx_client
+    if _influx_client is not None:
+        _influx_client.close()
+        _influx_client = None
+
+
+def parse_youless_response(response_text):
+    """
+    Parse Youless CSV response into a dictionary.
+    
+    Handles comma-separated key:value pairs with flexible formatting.
+    Returns dict with lowercased keys and float values where parseable.
+    """
+    data = {}
+    for line in response_text.split(','):
+        line = line.strip()
+        if ':' in line:
+            key_part, value_part = line.split(':', 1)
+            key = key_part.strip().lower()
+            value_str = value_part.strip()
+            
+            try:
+                # Handle potential sign for power values
+                data[key] = float(value_str)
+            except ValueError:
+                logger.warning(f"Could not parse value for key '{key}': {value_str}")
+    
+    return data
+
+
+def safe_task(func):
+    """
+    Decorator to wrap scheduled tasks with error handling and duration logging.
+    
+    Logs task duration and captures exceptions without breaking the scheduler.
+    """
+    @wraps(func)
+    def wrapper():
+        start_time = time.time()
+        try:
+            func()
+        except Exception as err:
+            logger.error(f"{func.__name__} failed: {err}", exc_info=True)
+        finally:
+            duration = time.time() - start_time
+            logger.info(f"{func.__name__} completed in {duration:.2f}s")
+    
+    return wrapper
 
 
 # ============================================================================
 # YOULESS ELECTRA TASK (every minute at :00)
 # ============================================================================
+@safe_task
 def youless_electra_task():
     """Read electricity data from Youless and write to InfluxDB."""
     try:
         logger.info("Running Youless Electra task...")
         res = requests.get("http://youless/e", timeout=10)
         
-        p1 = None
-        p2 = None
-        pwr = None
+        data = parse_youless_response(res.text)
         
-        for line in res.text.split(','):
-            # p1 = electra low
-            if "p1" in line.lower():
-                p1 = extract_value("p1", line)
-            
-            # p2 = electra high
-            if "p2" in line.lower():
-                p2 = extract_value("p2", line)
-            
-            # pwr = actual power
-            if "pwr" in line.lower():
-                x = line.rfind(':') + 1  # Keep the sign as pwr can be negative
-                y = len(line)
-                try:
-                    pwr = float(line[x:y])
-                except ValueError:
-                    logger.warning(f"Could not parse power value: {line[x:y]}")
+        p1 = data.get('p1')
+        p2 = data.get('p2')
+        pwr = data.get('pwr')
         
         if p1 is not None and p2 is not None and pwr is not None:
             InfluxWriter.write_to_influx("system", "electra_low", p1, "electra_high", p2, "pwr", pwr)
-            logger.info(f"Youless Electra: p1={p1}, p2={p2}, pwr={pwr}")
+            logger.info(f"Youless Electra: p1={p1} kWh, p2={p2} kWh, pwr={pwr} W")
         else:
-            logger.warning("Youless Electra: Missing values")
+            logger.warning(f"Youless Electra: Missing values (p1={p1}, p2={p2}, pwr={pwr})")
     
     except Exception as err:
         logger.error(f"Youless Electra task failed: {err}")
@@ -170,36 +194,20 @@ def youless_electra_task():
 # ============================================================================
 # YOULESS GAS TASK (every 5 minutes at :01, :06, :11, :16, :21, :26, :31, :36, :41, :46, :51, :56)
 # ============================================================================
+@safe_task
 def youless_gas_task():
     """Read gas meter data from Youless and write to InfluxDB."""
     try:
         logger.info("Running Youless Gas task...")
         res = requests.get("http://youless/e", timeout=10)
         
-        gas = None
-        # Try regex first to be tolerant to spacing/formatting (e.g. 'gas:123.45' or 'gas: 123.45')
-        m = re.search(r'gas\s*[:=]\s*([-+]?\d*\.?\d+)', res.text, re.IGNORECASE)
-        if m:
-            try:
-                gas = float(m.group(1))
-            except ValueError:
-                logger.warning(f"Could not parse gas value from regex: {m.group(1)}")
-        else:
-            # Fallback: legacy splitting by comma
-            for line in res.text.split(','):
-                # gas = gasmeter
-                if "gas" in line.lower():
-                    x = line.rfind(':') + 2  # For ';' and ' '
-                    y = len(line)
-                    try:
-                        gas = float(line[x:y])
-                    except ValueError:
-                        logger.warning(f"Could not parse gas value: {line[x:y]}")
+        data = parse_youless_response(res.text)
+        gas = data.get('gas')
         
         if gas is not None:
             measurement_name = "gasmeter"
             InfluxWriter.write_to_influx(measurement_name, "gas", gas)
-            logger.info(f"Youless Gas: gas={gas}")
+            logger.info(f"Youless Gas: gas={gas} m³")
         else:
             logger.warning("Youless Gas: Missing gas value")
     
@@ -210,6 +218,7 @@ def youless_gas_task():
 # ============================================================================
 # INFLUX GAS TASK (every 5 minutes at :02, :07, :12, :17, :22, :27, :32, :37, :42, :47, :52, :57)
 # ============================================================================
+@safe_task
 def influx_gas_task():
     """Calculate gas consumption rate from InfluxDB data."""
     try:
@@ -233,22 +242,36 @@ def influx_gas_task():
             result = query_api.query(flux_query, org=INFLUX_ORG)
             
             gas_values = []
+            gas_times = []
             for table in result:
                 for record in table.records:
                     gas_values.append(record.get_value())
+                    gas_times.append(record.get_time())
             
             if len(gas_values) >= 2:
                 gas_n0_f = gas_values[0]
                 gas_n1_f = gas_values[1]
+                time_n0 = gas_times[0]
+                time_n1 = gas_times[1]
                 
-                gas_m3_hr = (gas_n0_f - gas_n1_f) * 12.0  # Convert 5 min sample to m3/h
+                # Calculate time difference in minutes
+                time_diff = time_n0 - time_n1
+                minutes_elapsed = time_diff.total_seconds() / 60
                 
-                InfluxWriter.write_to_influx(measurement_name, "gas_m3_hr", gas_m3_hr)
-                logger.info(f"Influx Gas: gas_m3_hr={gas_m3_hr}")
+                # Validate interval (expect ~5 minutes, allow 3-7 minute window)
+                if 3 <= minutes_elapsed <= 7:
+                    # Convert measured 5-min sample to m3/h
+                    gas_m3_hr = (gas_n0_f - gas_n1_f) * (60 / minutes_elapsed)
+                    
+                    InfluxWriter.write_to_influx(measurement_name, "gas_m3_hr", gas_m3_hr)
+                    logger.info(f"Influx Gas: gas_m3_hr={gas_m3_hr:.4f} m³/h (interval: {minutes_elapsed:.1f} min)")
+                else:
+                    logger.warning(f"Influx Gas: Unexpected interval {minutes_elapsed:.1f} minutes, skipping calculation")
             else:
                 logger.warning(f"Influx Gas: Insufficient data from query (got {len(gas_values)} values)")
         finally:
-            client.close()
+            # Don't close client here; keep connection pooled
+            pass
     
     except Exception as err:
         logger.error(f"Influx Gas task failed: {err}")
@@ -257,6 +280,7 @@ def influx_gas_task():
 # ============================================================================
 # INFLUX LOWEST POWER TASK (daily at 01:00)
 # ============================================================================
+@safe_task
 def influx_lowest_power_task():
     """Calculate lowest power consumption for previous day."""
     try:
@@ -266,14 +290,17 @@ def influx_lowest_power_task():
         client = get_influx_client()
         query_api = client.query_api()
         
-        # Start from yesterday
-        s = date.today() - timedelta(days=1)
+        # Use timezone-aware dates to avoid misalignment
+        now_utc = datetime.datetime.now(timezone.utc)
+        start_date = (now_utc - timedelta(days=1)).date()
+        end_date = now_utc.date()
         
         try:
-            while s < date.today():
+            s = start_date
+            while s < end_date:
                 s2 = s + timedelta(days=1)
                 
-                # Query for evening minimum (8 PM - 11:59 PM)
+                # Query for evening minimum (8 PM - 11:59 PM UTC)
                 flux_query_evening = f'''
                     from(bucket: "{INFLUX_BUCKET}")
                     |> range(start: {s}T20:00:00Z, stop: {s}T23:59:00Z)
@@ -281,7 +308,7 @@ def influx_lowest_power_task():
                     |> min()
                 '''
                 
-                # Query for night minimum (12:01 AM - 5:00 AM next day)
+                # Query for night minimum (12:01 AM - 5:00 AM UTC next day)
                 flux_query_night = f'''
                     from(bucket: "{INFLUX_BUCKET}")
                     |> range(start: {s2}T00:01:00Z, stop: {s2}T05:00:00Z)
@@ -289,8 +316,8 @@ def influx_lowest_power_task():
                     |> min()
                 '''
                 
-                res_evening = 0.0
-                res_night = 0.0
+                res_evening = None
+                res_night = None
                 
                 # Get evening minimum
                 try:
@@ -310,22 +337,35 @@ def influx_lowest_power_task():
                 except Exception as e:
                     logger.warning(f"Could not retrieve night minimum: {e}")
                 
-                res = min(res_evening, res_night) if (res_evening and res_night) else max(res_evening, res_night)
-                logger.info(f"Lowest Power for {s}: {res}W (evening: {res_evening}W, night: {res_night}W)")
+                # Determine the overall minimum
+                if res_evening is not None and res_night is not None:
+                    res = min(res_evening, res_night)
+                elif res_evening is not None:
+                    res = res_evening
+                elif res_night is not None:
+                    res = res_night
+                else:
+                    res = None
                 
-                InfluxWriter.write_to_influx("sluip", "low", int(res))
+                if res is not None:
+                    logger.info(f"Lowest Power for {s}: {res:.0f} W (evening: {res_evening} W, night: {res_night} W)")
+                    InfluxWriter.write_to_influx("sluip", "low", int(res))
+                else:
+                    logger.warning(f"Lowest Power for {s}: No data available")
                 
                 s = s + timedelta(days=1)
         finally:
-            client.close()
+            # Don't close client here; keep connection pooled
+            pass
     
     except Exception as err:
         logger.error(f"Influx Lowest Power task failed: {err}")
 
 
 # ============================================================================
-# OUTSIDE WEATHER TASK (every 5 minutes)
+# OUTSIDE WEATHER TASK (every 15 minutes)
 # ============================================================================
+@safe_task
 def outside_weather_task():
     """Fetch outside weather from Open-Meteo API and write to InfluxDB."""
     try:
@@ -354,14 +394,16 @@ def outside_weather_task():
         current_temperature_2m = current.Variables(0).Value()
         
         InfluxWriter.write_to_influx("outside_temperature", "measured", current_temperature_2m)
-        logger.info(f"Outside Weather: temperature={current_temperature_2m}Â°C")
+        logger.info(f"Outside Weather: temperature={current_temperature_2m}°C")
     
     except Exception as err:
         logger.error(f"Outside Weather task failed: {err}")
 
+
 # ============================================================================
-# QINGPING SENSOR TASK (every 5 minutes)
+# QINGPING SENSOR TASK (every 10 minutes)
 # ============================================================================
+@safe_task
 def qingping_sensor_task():
     """Fetch Qingping sensor data (CO2, humidity, temperature) and write to InfluxDB."""
     if QP_APP_KEY is None or QP_APP_SECRET is None:
@@ -424,17 +466,16 @@ def qingping_sensor_task():
                 if co2 is not None and temp is not None and humidity is not None:
                     # Write all three values to InfluxDB in a single measurement
                     InfluxWriter.write_to_influx("qingping", "co2", co2, "temperature", temp, "humidity", humidity)
-                    logger.info(f"Qingping Sensor [{device_name}]: Wrote values (CO2={co2} ppm, Temp={temp} Degrees, Humidity={humidity}%)")
+                    logger.info(f"Qingping Sensor [{device_name}]: co2={co2} ppm, temp={temp}°C, humidity={humidity}%")
                 else:
                     logger.warning(f"Qingping Sensor [{device_name}]: Missing values (CO2={co2}, Temp={temp}, Humidity={humidity})")
-		    
 
         else:
             logger.error(f"Qingping API Error [{api_response.status_code}]: {api_response.text}")
 
     except Exception as err:
         logger.error(f"Qingping Sensor task failed: {err}")
-		
+
 
 # ============================================================================
 # SCHEDULING SETUP
@@ -455,14 +496,15 @@ def setup_schedule():
     for minute in [2, 7, 12, 17, 22, 27, 32, 37, 42, 47, 52, 57]:
         schedule.every().hour.at(f":{minute:02d}").do(influx_gas_task).tag(f"influx_gas_{minute}")
     
-    # Outside Weather: every 5 minutes
+    # Outside Weather: every 15 minutes (not 5 as previously noted)
     schedule.every(15).minutes.do(outside_weather_task)
     
-    # Influx Lowest Power: daily at 01:00
+    # Influx Lowest Power: daily at 01:00 UTC
     schedule.every().day.at("01:00").do(influx_lowest_power_task)
     
-    # Qingping Sensor: every 5 minutes
-    schedule.every(10).minutes.do(qingping_sensor_task)    
+    # Qingping Sensor: every 10 minutes (not 5 as previously noted)
+    schedule.every(10).minutes.do(qingping_sensor_task)
+    
     logger.info("Schedule configured successfully")
 
 
@@ -482,9 +524,11 @@ def main():
             time.sleep(1)
     except KeyboardInterrupt:
         logger.info("HomeAutomation stopped by user")
+        close_influx_client()
         sys.exit(0)
     except Exception as err:
-        logger.critical(f"Unexpected error in main loop: {err}")
+        logger.critical(f"Unexpected error in main loop: {err}", exc_info=True)
+        close_influx_client()
         sys.exit(1)
 
 
