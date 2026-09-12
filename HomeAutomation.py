@@ -7,6 +7,7 @@ Maintains database interactions with InfluxDB 2.x and Grafana compatibility.
 
 import requests
 import re
+import json
 import InfluxWriter
 import ConfigReader
 import openmeteo_requests
@@ -123,24 +124,34 @@ def close_influx_client():
 
 def parse_youless_response(response_text):
     """
-    Parse Youless CSV response into a dictionary.
+    Parse Youless JSON response into a dictionary.
     
-    Handles comma-separated key:value pairs with flexible formatting.
-    Returns dict with lowercased keys and float values where parseable.
+    Handles JSON format: text=[{...}] where values are fields in the JSON object.
+    Returns dict with lowercased keys and numeric values where present.
     """
     data = {}
-    for line in response_text.split(','):
-        line = line.strip()
-        if ':' in line:
-            key_part, value_part = line.split(':', 1)
-            key = key_part.strip().lower()
-            value_str = value_part.strip()
+    
+    try:
+        # Extract JSON array from text=... format
+        # Format: text=[{"tm":..., "pwr": ..., "p1": ..., "p2": ..., "gas": ..., ...}]
+        match = re.search(r'text=(\[.*\])', response_text)
+        if match:
+            json_str = match.group(1)
+            json_data = json.loads(json_str)
             
-            try:
-                # Handle potential sign for power values
-                data[key] = float(value_str)
-            except ValueError:
-                logger.warning(f"Could not parse value for key '{key}': {value_str}")
+            # Youless returns an array with one object
+            if isinstance(json_data, list) and len(json_data) > 0:
+                obj = json_data[0]
+                # Extract only the fields we need, preserving case
+                if isinstance(obj, dict):
+                    data = obj
+        else:
+            logger.warning(f"Could not parse Youless response format: {response_text[:100]}")
+    
+    except json.JSONDecodeError as e:
+        logger.warning(f"JSON parsing error in Youless response: {e}")
+    except Exception as e:
+        logger.warning(f"Error parsing Youless response: {e}")
     
     return data
 
