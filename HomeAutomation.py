@@ -44,7 +44,7 @@ INFLUX_TOKEN = "GHMsSVOOTP5IhVf3PZ1-cZdZkuKlXmSOJhph4uXXLk1FxMiM8yKeA7pefYGCyQHT
 INFLUX_ORG = "ASML"
 INFLUX_BUCKET = "youless"
 
- ============================================================================
+# ============================================================================
 # QINGPING API CONFIGURATION (for Qingping sensor)
 # ============================================================================
 def load_qingping_keys(filename="qpkeys.txt"):
@@ -395,7 +395,7 @@ def qingping_sensor_task():
             return
 
         # Fetch sensor data
- headers = {
+        headers = {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json"
         }
@@ -424,9 +424,10 @@ def qingping_sensor_task():
                 if co2 is not None and temp is not None and humidity is not None:
                     # Write all three values to InfluxDB in a single measurement
                     InfluxWriter.write_to_influx("qingping", "co2", co2, "temperature", temp, "humidity", humidity)
-                    logger.info(f"Qingping Sensor [{device_name}]: CO2={co2}ppm, Temp={temp} Celcius, Humidity={humidity}%")
+                    logger.info(f"Qingping Sensor [{device_name}]: Wrote values (CO2={co2} ppm, Temp={temp} Degrees, Humidity={humidity}%)")
                 else:
                     logger.warning(f"Qingping Sensor [{device_name}]: Missing values (CO2={co2}, Temp={temp}, Humidity={humidity})")
+		    
 
         else:
             logger.error(f"Qingping API Error [{api_response.status_code}]: {api_response.text}")
@@ -461,7 +462,7 @@ def setup_schedule():
     schedule.every().day.at("01:00").do(influx_lowest_power_task)
     
     # Qingping Sensor: every 5 minutes
-    schedule.every(5).minutes.do(qingping_sensor_task)    
+    schedule.every(10).minutes.do(qingping_sensor_task)    
     logger.info("Schedule configured successfully")
 
 
