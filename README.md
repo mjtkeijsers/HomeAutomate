@@ -1,4 +1,6 @@
-# Basic Power monitor
+# Power monitor
+
+Documentation outdated, need to remove Nest, Add Qingping, mention all in single file etc.
 
 Home Automation on Raspberry pi build around **Youless** (see https://www.youless.nl/home.html), Influx, Grafana, Python, cron and **NEST** Thermostat.
 
