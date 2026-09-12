@@ -40,8 +40,8 @@ logger = logging.getLogger(__name__)
 # INFLUX CONFIGURATION (shared across all functions)
 # ============================================================================
 INFLUX_URL = "http://127.0.0.1:8086"
-INFLUX_TOKEN = "GHMsSVOOTP5IhVf3PZ1-cZdZkuKlXmSOJhph4uXXLk1FxMiM8yKeA7pefYGCyQHTAZFXEkW6W4r8FVxyFAUM6w=="  # Generate this in InfluxDB UI
-INFLUX_ORG = "ASML"
+INFLUX_TOKEN = "XXX"  # Generate this in InfluxDB UI
+INFLUX_ORG = "YY" #Whatever
 INFLUX_BUCKET = "youless"
 
 # ============================================================================
