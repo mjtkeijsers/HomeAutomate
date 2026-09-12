@@ -132,21 +132,26 @@ def parse_youless_response(response_text):
     data = {}
     
     try:
-        # Extract JSON array from text=... format
-        # Format: text=[{"tm":..., "pwr": ..., "p1": ..., "p2": ..., "gas": ..., ...}]
-        match = re.search(r'text=(\[.*\])', response_text)
+        # Try format 1: text=[{...}] (URL query string format)
+        match = re.search(r'text=(\[.*\])', response_text, re.DOTALL)
         if match:
             json_str = match.group(1)
-            json_data = json.loads(json_str)
-            
-            # Youless returns an array with one object
-            if isinstance(json_data, list) and len(json_data) > 0:
-                obj = json_data[0]
-                # Extract only the fields we need, preserving case
-                if isinstance(obj, dict):
-                    data = obj
         else:
-            logger.warning(f"Could not parse Youless response format: {response_text[:100]}")
+            # Try format 2: Direct JSON array (for raw API responses)
+            if response_text.strip().startswith('['):
+                json_str = response_text.strip()
+            else:
+                logger.warning(f"Could not parse Youless response format: {response_text[:100]}")
+                return data
+        
+        json_data = json.loads(json_str)
+        
+        # Youless returns an array with one object
+        if isinstance(json_data, list) and len(json_data) > 0:
+            obj = json_data[0]
+            # Extract only the fields we need, preserving case
+            if isinstance(obj, dict):
+                data = obj
     
     except json.JSONDecodeError as e:
         logger.warning(f"JSON parsing error in Youless response: {e}")
@@ -188,10 +193,12 @@ def youless_electra_task():
         
         data = parse_youless_response(res.text)
         
-        p1 = data.get('p1')
+        logger.info(f"Youless Electra: data={data}")
+	
+        p1 = data.get("p1")
         p2 = data.get('p2')
         pwr = data.get('pwr')
-        
+       
         if p1 is not None and p2 is not None and pwr is not None:
             InfluxWriter.write_to_influx("system", "electra_low", p1, "electra_high", p2, "pwr", pwr)
             logger.info(f"Youless Electra: p1={p1} kWh, p2={p2} kWh, pwr={pwr} W")
@@ -218,7 +225,7 @@ def youless_gas_task():
         if gas is not None:
             measurement_name = "gasmeter"
             InfluxWriter.write_to_influx(measurement_name, "gas", gas)
-            logger.info(f"Youless Gas: gas={gas} m³")
+            logger.info(f"Youless Gas: gas={gas}m3")
         else:
             logger.warning("Youless Gas: Missing gas value")
     
@@ -275,7 +282,7 @@ def influx_gas_task():
                     gas_m3_hr = (gas_n0_f - gas_n1_f) * (60 / minutes_elapsed)
                     
                     InfluxWriter.write_to_influx(measurement_name, "gas_m3_hr", gas_m3_hr)
-                    logger.info(f"Influx Gas: gas_m3_hr={gas_m3_hr:.4f} m³/h (interval: {minutes_elapsed:.1f} min)")
+                    logger.info(f"Influx Gas: gas_m3_hr={gas_m3_hr:.4f} m3/h (interval: {minutes_elapsed:.1f} min)")
                 else:
                     logger.warning(f"Influx Gas: Unexpected interval {minutes_elapsed:.1f} minutes, skipping calculation")
             else:
@@ -405,7 +412,7 @@ def outside_weather_task():
         current_temperature_2m = current.Variables(0).Value()
         
         InfluxWriter.write_to_influx("outside_temperature", "measured", current_temperature_2m)
-        logger.info(f"Outside Weather: temperature={current_temperature_2m}°C")
+        logger.info(f"Outside Weather: temperature={current_temperature_2m}Celcius")
     
     except Exception as err:
         logger.error(f"Outside Weather task failed: {err}")
@@ -477,7 +484,7 @@ def qingping_sensor_task():
                 if co2 is not None and temp is not None and humidity is not None:
                     # Write all three values to InfluxDB in a single measurement
                     InfluxWriter.write_to_influx("qingping", "co2", co2, "temperature", temp, "humidity", humidity)
-                    logger.info(f"Qingping Sensor [{device_name}]: co2={co2} ppm, temp={temp}°C, humidity={humidity}%")
+                    logger.info(f"Qingping Sensor [{device_name}]: co2={co2} ppm, temp={temp}Celcius, humidity={humidity}%")
                 else:
                     logger.warning(f"Qingping Sensor [{device_name}]: Missing values (CO2={co2}, Temp={temp}, Humidity={humidity})")
 
@@ -517,7 +524,7 @@ def setup_schedule():
     schedule.every(10).minutes.do(qingping_sensor_task)
     
     logger.info("Schedule configured successfully")
-
+    
 
 # ============================================================================
 # MAIN LOOP
