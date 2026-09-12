@@ -30,7 +30,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('/var/log/homeautomation.log'),
+        logging.FileHandler('homeautomation.log'),
         logging.StreamHandler(sys.stdout)
     ]
 )
@@ -40,11 +40,11 @@ logger = logging.getLogger(__name__)
 # INFLUX CONFIGURATION (shared across all functions)
 # ============================================================================
 INFLUX_URL = "http://127.0.0.1:8086"
-INFLUX_TOKEN = "your-api-token-here"  # Generate this in InfluxDB UI
-INFLUX_ORG = "your-org-here"
+INFLUX_TOKEN = "GHMsSVOOTP5IhVf3PZ1-cZdZkuKlXmSOJhph4uXXLk1FxMiM8yKeA7pefYGCyQHTAZFXEkW6W4r8FVxyFAUM6w=="  # Generate this in InfluxDB UI
+INFLUX_ORG = "ASML"
 INFLUX_BUCKET = "youless"
 
-# ============================================================================
+ ============================================================================
 # QINGPING API CONFIGURATION (for Qingping sensor)
 # ============================================================================
 def load_qingping_keys(filename="qpkeys.txt"):
@@ -354,11 +354,10 @@ def outside_weather_task():
         current_temperature_2m = current.Variables(0).Value()
         
         InfluxWriter.write_to_influx("outside_temperature", "measured", current_temperature_2m)
-        logger.info(f"Outside Weather: temperature={current_temperature_2m}°C")
+        logger.info(f"Outside Weather: temperature={current_temperature_2m}Â°C")
     
     except Exception as err:
         logger.error(f"Outside Weather task failed: {err}")
-
 
 # ============================================================================
 # QINGPING SENSOR TASK (every 5 minutes)
@@ -371,7 +370,7 @@ def qingping_sensor_task():
 
     try:
         logger.info("Running Qingping Sensor task...")
-        
+
         # Get access token
         credentials = f"{QP_APP_KEY}:{QP_APP_SECRET}"
         encoded_credentials = base64.b64encode(credentials.encode()).decode()
@@ -396,7 +395,7 @@ def qingping_sensor_task():
             return
 
         # Fetch sensor data
-        headers = {
+ headers = {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json"
         }
@@ -434,7 +433,7 @@ def qingping_sensor_task():
 
     except Exception as err:
         logger.error(f"Qingping Sensor task failed: {err}")
-
+		
 
 # ============================================================================
 # SCHEDULING SETUP
@@ -456,14 +455,13 @@ def setup_schedule():
         schedule.every().hour.at(f":{minute:02d}").do(influx_gas_task).tag(f"influx_gas_{minute}")
     
     # Outside Weather: every 5 minutes
-    schedule.every(5).minutes.do(outside_weather_task)
-    
-    # Qingping Sensor: every 5 minutes
-    schedule.every(5).minutes.do(qingping_sensor_task)
+    schedule.every(15).minutes.do(outside_weather_task)
     
     # Influx Lowest Power: daily at 01:00
     schedule.every().day.at("01:00").do(influx_lowest_power_task)
     
+    # Qingping Sensor: every 5 minutes
+    schedule.every(5).minutes.do(qingping_sensor_task)    
     logger.info("Schedule configured successfully")
 
 
