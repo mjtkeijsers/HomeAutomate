@@ -424,7 +424,7 @@ def qingping_sensor_task():
                 if co2 is not None and temp is not None and humidity is not None:
                     # Write all three values to InfluxDB in a single measurement
                     InfluxWriter.write_to_influx("qingping", "co2", co2, "temperature", temp, "humidity", humidity)
-                    logger.info(f"Qingping Sensor [{device_name}]: CO2={co2}ppm, Temp={temp}°C, Humidity={humidity}%")
+                    logger.info(f"Qingping Sensor [{device_name}]: CO2={co2}ppm, Temp={temp} Celcius, Humidity={humidity}%")
                 else:
                     logger.warning(f"Qingping Sensor [{device_name}]: Missing values (CO2={co2}, Temp={temp}, Humidity={humidity})")
 
