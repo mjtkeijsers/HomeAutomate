@@ -1,15 +1,29 @@
 
 import datetime
+import os
 from influxdb_client import InfluxDBClient
 from influxdb_client.client.write_api import SYNCHRONOUS
+from dotenv import load_dotenv
+
+# Load environment variables from .env file if present
+load_dotenv()
 
 def write_to_influx(measurement_name, key1, value1, key2=None, value2=None, key3=None, value3=None):
-
-    # influxdb 2.x configuration - edit these
-    ifurl = "http://127.0.0.1:8086"
-    iftoken = "your-api-token-here"  # Generate this in InfluxDB UI
-    iforg = "your-org-here"
-    ifbucket = "youless"
+    """
+    Write data to InfluxDB 2.x
+    
+    Reads InfluxDB credentials from environment variables:
+    - INFLUX_URL (default: http://127.0.0.1:8086)
+    - INFLUX_TOKEN (required)
+    - INFLUX_ORG (default: your-org-here)
+    - INFLUX_BUCKET (default: youless)
+    """
+    
+    # Read InfluxDB configuration from environment variables
+    ifurl = os.getenv("INFLUX_URL", "http://127.0.0.1:8086")
+    iftoken = os.getenv("INFLUX_TOKEN", "your-api-token-here")
+    iforg = os.getenv("INFLUX_ORG", "your-org-here")
+    ifbucket = os.getenv("INFLUX_BUCKET", "youless")
 
     # take a timestamp for this measurement
     time = datetime.datetime.utcnow()
@@ -76,4 +90,3 @@ def write_to_influx(measurement_name, key1, value1, key2=None, value2=None, key3
         write_api.write(bucket=ifbucket, org=iforg, record=body)
     finally:
         client.close()
-
