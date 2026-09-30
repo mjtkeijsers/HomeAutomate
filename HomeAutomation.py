@@ -9,12 +9,11 @@ import requests
 import re
 import json
 import InfluxWriter
-import ConfigReader
 import openmeteo_requests
 import requests_cache
 from retry_requests import retry
 import datetime
-from datetime import date, timedelta, timezone
+from datetime import timedelta, timezone
 import time
 import sys
 import logging
@@ -24,11 +23,10 @@ import os
 import asyncio
 from dotenv import load_dotenv
 from influxdb_client import InfluxDBClient
-from influxdb_client.client.write_api import SYNCHRONOUS
 from functools import wraps
 from myPyllant.api import MyPyllantAPI
 
-# Load environment variables from .env file
+# Load environment variables from .env file if present
 load_dotenv()
 
 # ============================================================================
@@ -44,24 +42,44 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+
+# ============================================================================
+# ENVIRONMENT HELPERS
+# ============================================================================
+def get_env(name, default=None, required=False, cast=None):
+    """Read a required or optional environment variable with optional casting."""
+    value = os.getenv(name, default)
+
+    if value is None or str(value).strip() == "":
+        if required:
+            raise RuntimeError(f"Missing required environment variable: {name}")
+        return default
+
+    if cast is not None:
+        try:
+            return cast(value)
+        except (TypeError, ValueError):
+            raise RuntimeError(f"Environment variable {name} is invalid for {cast.__name__}: {value!r}")
+
+    return value
+
+
 # ============================================================================
 # CONFIGURATION CONSTANTS
 # ============================================================================
-INFLUX_URL = os.getenv("INFLUX_URL", "http://127.0.0.1:8086")
-INFLUX_TOKEN = os.getenv("INFLUX_TOKEN", "")
-INFLUX_ORG = os.getenv("INFLUX_ORG", "ASML")
-INFLUX_BUCKET = os.getenv("INFLUX_BUCKET", "youless")
+INFLUX_URL = get_env("INFLUX_URL", "http://127.0.0.1:8086")
+INFLUX_TOKEN = get_env("INFLUX_TOKEN", required=True)
+INFLUX_ORG = get_env("INFLUX_ORG", "ASML")
+INFLUX_BUCKET = get_env("INFLUX_BUCKET", "youless")
+
+OUTSIDE_LATITUDE = get_env("OUTSIDE_LATITUDE", cast=float)
+OUTSIDE_LONGITUDE = get_env("OUTSIDE_LONGITUDE", cast=float)
 
 # Request timeouts and retry configuration
 REQUEST_TIMEOUT_DEFAULT = 10  # seconds
 REQUEST_TIMEOUT_SLOW_API = 15  # for slower APIs like Vaillant
 RETRY_MAX_ATTEMPTS = 3
 RETRY_BACKOFF_FACTOR = 0.5  # exponential backoff: 0.5s, 1s, 2s
-
-# Validate that critical config is present
-if not INFLUX_TOKEN:
-    logger.critical("INFLUX_TOKEN environment variable not set. Exiting.")
-    sys.exit(1)
 
 # InfluxDB client connection pool (persistent, with staleness tracking)
 _influx_client = None
@@ -72,41 +90,15 @@ _influx_client_max_age = 3600  # reconnect after 1 hour
 _http_session = None
 
 # ============================================================================
-# QINGPING API CONFIGURATION (for Qingping sensor)
+# QINGPING API CONFIGURATION (from environment variables only)
 # ============================================================================
-def load_qingping_keys(filename="qpkeys.txt"):
-    """Load APP_KEY and APP_SECRET from qpkeys.txt file."""
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    key_file_path = os.path.join(script_dir, filename)
-
-    if not os.path.exists(key_file_path):
-        logger.warning(f"Qingping keys file not found at {key_file_path}. Qingping task will be skipped.")
-        return None, None
-
-    app_key = None
-    app_secret = None
-
-    try:
-        with open(key_file_path, "r", encoding="utf-8") as f:
-            for line in f:
-                line = line.strip()
-                if not line or line.startswith("#"):
-                    continue
-                if "=" in line:
-                    key, value = line.split("=", 1)
-                    key = key.strip()
-                    value = value.strip().strip('"').strip("'")
-
-                    if key == "APP_KEY":
-                        app_key = value
-                    elif key == "APP_SECRET":
-                        app_secret = value
-    except IOError as e:
-        logger.warning(f"Could not read Qingping keys file: {e}")
-        return None, None
+def load_qingping_keys():
+    """Load Qingping credentials from environment variables."""
+    app_key = get_env("QINGPING_APP_KEY")
+    app_secret = get_env("QINGPING_APP_SECRET")
 
     if not app_key or not app_secret:
-        logger.warning("Qingping keys not properly configured. Qingping task will be skipped.")
+        logger.warning("Qingping credentials not configured. Qingping task will be skipped.")
         return None, None
 
     return app_key, app_secret
@@ -120,10 +112,10 @@ QP_API_URL = "https://apis.cleargrass.com/v1/apis/devices"
 # ============================================================================
 # VAILLANT API CONFIGURATION
 # ============================================================================
-VAILLANT_USERNAME = os.getenv("MYVAILLANT_USERNAME")
-VAILLANT_PASSWORD = os.getenv("MYVAILLANT_PASSWORD")
-VAILLANT_BRAND = os.getenv("MYVAILLANT_BRAND", "vaillant")
-VAILLANT_COUNTRY = os.getenv("MYVAILLANT_COUNTRY", "netherlands")
+VAILLANT_USERNAME = get_env("MYVAILLANT_USERNAME")
+VAILLANT_PASSWORD = get_env("MYVAILLANT_PASSWORD")
+VAILLANT_BRAND = get_env("MYVAILLANT_BRAND", "vaillant")
+VAILLANT_COUNTRY = get_env("MYVAILLANT_COUNTRY", "netherlands")
 
 # ============================================================================
 # WEATHER API SETUP (Open-Meteo)
@@ -156,19 +148,19 @@ def close_http_session():
 def get_influx_client(force_reconnect=False):
     """
     Get InfluxDB 2.x client connection with stale client detection.
-    
+
     Automatically reconnects if the client has been open for more than
     _influx_client_max_age seconds to prevent connection timeouts.
     """
     global _influx_client, _influx_client_created_at
-    
+
     # Check if client is stale
     if _influx_client is not None and not force_reconnect:
         age = time.time() - _influx_client_created_at
         if age > _influx_client_max_age:
             logger.info(f"InfluxDB client is stale ({age:.0f}s old), reconnecting...")
             force_reconnect = True
-    
+
     # Create or reconnect
     if _influx_client is None or force_reconnect:
         if _influx_client is not None:
@@ -176,11 +168,11 @@ def get_influx_client(force_reconnect=False):
                 _influx_client.close()
             except Exception as e:
                 logger.warning(f"Error closing stale InfluxDB client: {e}")
-        
+
         _influx_client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
         _influx_client_created_at = time.time()
         logger.debug("Created new InfluxDB client connection")
-    
+
     return _influx_client
 
 
@@ -199,28 +191,28 @@ def close_influx_client():
 def safe_request(method, url, max_retries=RETRY_MAX_ATTEMPTS, timeout=REQUEST_TIMEOUT_DEFAULT, **kwargs):
     """
     Make an HTTP request with exponential backoff retry logic.
-    
+
     Args:
         method: 'GET' or 'POST'
         url: Target URL
         max_retries: Number of retry attempts
         timeout: Request timeout in seconds
         **kwargs: Additional arguments passed to session.request()
-    
+
     Returns:
         Response object on success, or None if all retries failed
-    
+
     Raises:
         RequestException: If all retries are exhausted (caller should handle)
     """
     session = get_http_session()
     last_error = None
-    
+
     for attempt in range(max_retries):
         try:
             logger.debug(f"HTTP {method} {url} (attempt {attempt + 1}/{max_retries})")
             response = session.request(method, url, timeout=timeout, **kwargs)
-            response.raise_for_status()  # Raise for 4xx/5xx
+            response.raise_for_status()
             return response
         except requests.exceptions.Timeout as e:
             last_error = e
@@ -229,57 +221,43 @@ def safe_request(method, url, max_retries=RETRY_MAX_ATTEMPTS, timeout=REQUEST_TI
             last_error = e
             logger.warning(f"Connection error on attempt {attempt + 1}/{max_retries}: {url}")
         except requests.exceptions.HTTPError as e:
-            # Don't retry on 4xx client errors; only retry on 5xx
-            if e.response.status_code >= 500:
+            if e.response is not None and e.response.status_code >= 500:
                 last_error = e
                 logger.warning(f"Server error {e.response.status_code} on attempt {attempt + 1}/{max_retries}: {url}")
             else:
-                # 4xx errors are permanent; raise immediately
-                logger.error(f"Client error {e.response.status_code}: {url}")
+                logger.error(f"Client error {e.response.status_code if e.response is not None else 'unknown'}: {url}")
                 raise
         except requests.exceptions.RequestException as e:
             last_error = e
             logger.warning(f"Request error on attempt {attempt + 1}/{max_retries}: {e}")
-        
-        # Exponential backoff before next retry
+
         if attempt < max_retries - 1:
             wait_time = RETRY_BACKOFF_FACTOR * (2 ** attempt)
             logger.debug(f"Retrying in {wait_time:.1f}s...")
             time.sleep(wait_time)
-    
-    # All retries exhausted
+
     logger.error(f"All {max_retries} retry attempts failed for {url}: {last_error}")
     raise last_error
 
 
 def parse_youless_response(response_text):
-    """
-    Parse Youless JSON response into a dictionary.
-    
-    Handles JSON format: text=[{...}] where values are fields in the JSON object.
-    Returns dict with lowercased keys and numeric values where present.
-    """
+    """Parse Youless JSON response into a dictionary."""
     data = {}
 
     try:
-        # Try format 1: text=[{...}] (URL query string format)
         match = re.search(r'text=(\[.*\])', response_text, re.DOTALL)
         if match:
             json_str = match.group(1)
+        elif response_text.strip().startswith('['):
+            json_str = response_text.strip()
         else:
-            # Try format 2: Direct JSON array (for raw API responses)
-            if response_text.strip().startswith('['):
-                json_str = response_text.strip()
-            else:
-                logger.warning(f"Could not parse Youless response format: {response_text[:100]}")
-                return data
+            logger.warning(f"Could not parse Youless response format: {response_text[:100]}")
+            return data
 
         json_data = json.loads(json_str)
 
-        # Youless returns an array with one object
         if isinstance(json_data, list) and len(json_data) > 0:
             obj = json_data[0]
-            # Extract only the fields we need, preserving case
             if isinstance(obj, dict):
                 data = obj
 
@@ -292,12 +270,7 @@ def parse_youless_response(response_text):
 
 
 def safe_task(func):
-    """
-    Decorator to wrap scheduled tasks with error handling and duration logging.
-
-    Logs task duration and captures exceptions without breaking the scheduler.
-    Distinguishes between successful and failed executions in logging.
-    """
+    """Decorator to wrap scheduled tasks with error handling and duration logging."""
     @wraps(func)
     def wrapper():
         start_time = time.time()
@@ -326,15 +299,13 @@ def safe_task(func):
 def youless_electra_task():
     """Read electricity data from Youless and write to InfluxDB."""
     logger.info("Running Youless Electra task...")
-    
+
     try:
         response = safe_request("GET", "http://youless/e", timeout=REQUEST_TIMEOUT_DEFAULT)
     except requests.exceptions.RequestException:
-        # Error already logged in safe_request
         return
 
     data = parse_youless_response(response.text)
-
     logger.debug(f"Youless Electra: raw_data={data}")
 
     p1 = data.get("p1")
@@ -358,20 +329,18 @@ def youless_electra_task():
 def youless_gas_task():
     """Read gas meter data from Youless and write to InfluxDB."""
     logger.info("Running Youless Gas task...")
-    
+
     try:
         response = safe_request("GET", "http://youless/e", timeout=REQUEST_TIMEOUT_DEFAULT)
     except requests.exceptions.RequestException:
-        # Error already logged in safe_request
         return
 
     data = parse_youless_response(response.text)
     gas = data.get('gas')
 
     if gas is not None:
-        measurement_name = "gasmeter"
         try:
-            InfluxWriter.write_to_influx(measurement_name, "gas", gas)
+            InfluxWriter.write_to_influx("gasmeter", "gas", gas)
             logger.info(f"Youless Gas: gas={gas}m3")
         except Exception as e:
             logger.error(f"Failed to write Youless Gas data to InfluxDB: {e}")
@@ -389,12 +358,9 @@ def influx_gas_task():
     measurement_name = "gas_actuals"
 
     try:
-        # Connect to influx
         client = get_influx_client()
         query_api = client.query_api()
 
-        # Read back last 2 most recent measurements using Flux query language
-        # Optimized time window: -15m instead of -1h since we expect ~5 minute intervals
         flux_query = f'''
             from(bucket: "{INFLUX_BUCKET}")
             |> range(start: -15m)
@@ -418,13 +384,10 @@ def influx_gas_task():
             time_n0 = gas_times[0]
             time_n1 = gas_times[1]
 
-            # Calculate time difference in minutes
             time_diff = time_n0 - time_n1
             minutes_elapsed = time_diff.total_seconds() / 60
 
-            # Validate interval (expect ~5 minutes, allow 3-7 minute window)
             if 3 <= minutes_elapsed <= 7:
-                # Convert measured 5-min sample to m3/h
                 gas_m3_hr = (gas_n0_f - gas_n1_f) * (60 / minutes_elapsed)
 
                 try:
@@ -450,11 +413,9 @@ def influx_lowest_power_task():
     logger.info("Running Influx Lowest Power task...")
 
     try:
-        # Connect to influx
         client = get_influx_client()
         query_api = client.query_api()
 
-        # Use timezone-aware dates to avoid misalignment
         now_utc = datetime.datetime.now(timezone.utc)
         start_date = (now_utc - timedelta(days=1)).date()
         end_date = now_utc.date()
@@ -463,7 +424,6 @@ def influx_lowest_power_task():
         while s < end_date:
             s2 = s + timedelta(days=1)
 
-            # Query for evening minimum (8 PM - 11:59 PM UTC)
             flux_query_evening = f'''
                 from(bucket: "{INFLUX_BUCKET}")
                 |> range(start: {s}T20:00:00Z, stop: {s}T23:59:00Z)
@@ -471,7 +431,6 @@ def influx_lowest_power_task():
                 |> min()
             '''
 
-            # Query for night minimum (12:01 AM - 5:00 AM UTC next day)
             flux_query_night = f'''
                 from(bucket: "{INFLUX_BUCKET}")
                 |> range(start: {s2}T00:01:00Z, stop: {s2}T05:00:00Z)
@@ -482,7 +441,6 @@ def influx_lowest_power_task():
             res_evening = None
             res_night = None
 
-            # Get evening minimum
             try:
                 result_evening = query_api.query(flux_query_evening, org=INFLUX_ORG)
                 for table in result_evening:
@@ -491,7 +449,6 @@ def influx_lowest_power_task():
             except Exception as e:
                 logger.warning(f"Could not retrieve evening minimum: {e}")
 
-            # Get night minimum
             try:
                 result_night = query_api.query(flux_query_night, org=INFLUX_ORG)
                 for table in result_night:
@@ -500,7 +457,6 @@ def influx_lowest_power_task():
             except Exception as e:
                 logger.warning(f"Could not retrieve night minimum: {e}")
 
-            # Determine the overall minimum
             if res_evening is not None and res_night is not None:
                 res = min(res_evening, res_night)
             elif res_evening is not None:
@@ -533,14 +489,14 @@ def outside_weather_task():
     """Fetch outside weather from Open-Meteo API and write to InfluxDB."""
     logger.info("Running Outside Weather task...")
 
-    try:
-        config = ConfigReader.read_csv_from_home_to_dict("LocationConfig.txt")
-        latitude = config['latitude']
-        longitude = config['longitude']  # Fixed: was 'longtitude' (typo)
+    if OUTSIDE_LATITUDE is None or OUTSIDE_LONGITUDE is None:
+        logger.warning("Outside Weather task skipped: OUTSIDE_LATITUDE / OUTSIDE_LONGITUDE not configured")
+        return
 
+    try:
         params = {
-            "latitude": latitude,
-            "longitude": longitude,
+            "latitude": OUTSIDE_LATITUDE,
+            "longitude": OUTSIDE_LONGITUDE,
             "current": "temperature_2m",
             "timezone": "auto",
             "past_days": 0
@@ -548,11 +504,8 @@ def outside_weather_task():
 
         url = "https://api.open-meteo.com/v1/forecast"
         responses = openmeteo.weather_api(url, params=params)
-
-        # Process first location
         response = responses[0]
 
-        # Get current values
         current = response.Current()
         current_temperature_2m = current.Variables(0).Value()
 
@@ -562,8 +515,6 @@ def outside_weather_task():
         except Exception as e:
             logger.error(f"Failed to write Outside Weather data to InfluxDB: {e}")
 
-    except KeyError as e:
-        logger.error(f"Missing config key in LocationConfig.txt: {e}")
     except Exception as err:
         logger.error(f"Outside Weather task error: {err}")
 
@@ -581,7 +532,6 @@ def qingping_sensor_task():
     logger.info("Running Qingping Sensor task...")
 
     try:
-        # Get access token
         credentials = f"{QP_APP_KEY}:{QP_APP_SECRET}"
         encoded_credentials = base64.b64encode(credentials.encode()).decode()
 
@@ -597,7 +547,6 @@ def qingping_sensor_task():
         try:
             token_response = safe_request("POST", QP_TOKEN_URL, headers=headers, data=body, timeout=REQUEST_TIMEOUT_DEFAULT)
         except requests.exceptions.RequestException:
-            # Error already logged in safe_request
             return
 
         if token_response.status_code != 200:
@@ -609,7 +558,6 @@ def qingping_sensor_task():
             logger.error("Qingping: No access token received")
             return
 
-        # Fetch sensor data
         headers = {
             "Authorization": f"Bearer {access_token}",
             "Content-Type": "application/json"
@@ -619,7 +567,6 @@ def qingping_sensor_task():
         try:
             api_response = safe_request("GET", QP_API_URL, headers=headers, params=params, timeout=REQUEST_TIMEOUT_DEFAULT)
         except requests.exceptions.RequestException:
-            # Error already logged in safe_request
             return
 
         if api_response.status_code == 200:
@@ -641,14 +588,12 @@ def qingping_sensor_task():
 
                 if co2 is not None and temp is not None and humidity is not None:
                     try:
-                        # Write all three values to InfluxDB in a single measurement
                         InfluxWriter.write_to_influx("qingping", "co2", co2, "temperature", temp, "humidity", humidity)
                         logger.info(f"Qingping Sensor [{device_name}]: co2={co2} ppm, temp={temp}°C, humidity={humidity}%")
                     except Exception as e:
                         logger.error(f"Failed to write Qingping data to InfluxDB: {e}")
                 else:
                     logger.warning(f"Qingping Sensor [{device_name}]: Missing values (CO2={co2}, Temp={temp}, Humidity={humidity})")
-
         else:
             logger.error(f"Qingping API Error [{api_response.status_code}]: {api_response.text}")
 
@@ -662,7 +607,7 @@ def qingping_sensor_task():
 async def fetch_vaillant_data():
     """Fetch Vaillant heating system data from MyPyllant API."""
     if not VAILLANT_USERNAME or not VAILLANT_PASSWORD:
-        logger.debug("Vaillant task skipped: MYVAILLANT_USERNAME or MYVAILLANT_PASSWORD not set in .env file")
+        logger.debug("Vaillant task skipped: MYVAILLANT_USERNAME or MYVAILLANT_PASSWORD not set in environment")
         return
 
     logger.info("Running Vaillant Heating System task...")
@@ -677,7 +622,6 @@ async def fetch_vaillant_data():
             async for system in api.get_systems():
                 logger.info(f"Processing Vaillant System ID: {system.id}")
 
-                # Outdoor temperature check
                 outdoor_temp = None
                 if hasattr(system, "outdoor_temperature") and system.outdoor_temperature is not None:
                     outdoor_temp = system.outdoor_temperature
@@ -693,14 +637,12 @@ async def fetch_vaillant_data():
                 else:
                     logger.warning("Vaillant: outdoor_temperature not available")
 
-                # Heating zones
                 if getattr(system, "zones", None):
                     for zone in system.zones:
                         zone_name = getattr(zone, "name", "Unnamed Zone")
                         current_temp = getattr(zone, "current_room_temperature", None)
                         desired_temp = getattr(zone, "desired_room_temperature_setpoint", None)
 
-                        # Sanitize zone name for InfluxDB tag (replace spaces and special chars)
                         zone_tag = zone_name.replace(" ", "_").replace("-", "_").lower()
 
                         if current_temp is not None:
@@ -750,29 +692,17 @@ def vaillant_heating_task():
 def setup_schedule():
     """Configure all scheduled tasks."""
 
-    # Youless Electra: every minute at :00 seconds
     schedule.every().minute.at(":00").do(youless_electra_task)
 
-    # Youless Gas: every 5 minutes at specific seconds
-    # (minutes 1, 6, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56)
     for minute in [1, 6, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56]:
         schedule.every().hour.at(f":{minute:02d}").do(youless_gas_task).tag(f"youless_gas_{minute}")
 
-    # Influx Gas: every 5 minutes at specific seconds
-    # (minutes 2, 7, 12, 17, 22, 27, 32, 37, 42, 47, 52, 57)
     for minute in [2, 7, 12, 17, 22, 27, 32, 37, 42, 47, 52, 57]:
         schedule.every().hour.at(f":{minute:02d}").do(influx_gas_task).tag(f"influx_gas_{minute}")
 
-    # Outside Weather: every 15 minutes
     schedule.every(15).minutes.do(outside_weather_task)
-
-    # Influx Lowest Power: daily at 01:00 UTC
     schedule.every().day.at("01:00").do(influx_lowest_power_task)
-
-    # Qingping Sensor: every 10 minutes
     schedule.every(10).minutes.do(qingping_sensor_task)
-
-    # Vaillant Heating System: every 10 minutes
     schedule.every(10).minutes.do(vaillant_heating_task)
 
     logger.info("Schedule configured successfully")
