@@ -89,4 +89,8 @@ def write_to_influx(measurement_name, key1, value1, key2=None, value2=None, key3
     try:
         write_api.write(bucket=ifbucket, org=iforg, record=body)
     finally:
+<<<<<<< HEAD
         client.close()
+=======
+        client.close()
+>>>>>>> 72a6840e9134f3b3190000a1a81d901cd8adddfc
