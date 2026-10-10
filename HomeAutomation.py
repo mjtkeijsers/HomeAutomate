@@ -314,7 +314,7 @@ def youless_electra_task():
 
     if p1 is not None and p2 is not None and pwr is not None:
         try:
-            InfluxWriter.write_to_influx("system", "electra_low", p1, "electra_high", p2, "pwr", pwr)
+            InfluxWriter.write_to_influx("system", "electra_low", p1, "electra_high", p2, "pwr", pwr, client=get_influx_client())
             logger.info(f"Youless Electra: p1={p1} kWh, p2={p2} kWh, pwr={pwr} W")
         except Exception as e:
             logger.error(f"Failed to write Youless Electra data to InfluxDB: {e}")
@@ -340,7 +340,7 @@ def youless_gas_task():
 
     if gas is not None:
         try:
-            InfluxWriter.write_to_influx("gasmeter", "gas", gas)
+            InfluxWriter.write_to_influx("gasmeter", "gas", gas, client=get_influx_client())
             logger.info(f"Youless Gas: gas={gas}m3")
         except Exception as e:
             logger.error(f"Failed to write Youless Gas data to InfluxDB: {e}")
@@ -391,7 +391,7 @@ def influx_gas_task():
                 gas_m3_hr = (gas_n0_f - gas_n1_f) * (60 / minutes_elapsed)
 
                 try:
-                    InfluxWriter.write_to_influx(measurement_name, "gas_m3_hr", gas_m3_hr)
+                    InfluxWriter.write_to_influx(measurement_name, "gas_m3_hr", gas_m3_hr, client=get_influx_client())
                     logger.info(f"Influx Gas: gas_m3_hr={gas_m3_hr:.4f} m3/h (interval: {minutes_elapsed:.1f} min)")
                 except Exception as e:
                     logger.error(f"Failed to write Influx Gas data: {e}")
@@ -469,7 +469,7 @@ def influx_lowest_power_task():
             if res is not None:
                 logger.info(f"Lowest Power for {s}: {res:.0f} W (evening: {res_evening} W, night: {res_night} W)")
                 try:
-                    InfluxWriter.write_to_influx("sluip", "low", int(res))
+                    InfluxWriter.write_to_influx("sluip", "low", int(res), client=get_influx_client())
                 except Exception as e:
                     logger.error(f"Failed to write Lowest Power data to InfluxDB: {e}")
             else:
@@ -510,7 +510,7 @@ def outside_weather_task():
         current_temperature_2m = current.Variables(0).Value()
 
         try:
-            InfluxWriter.write_to_influx("outside_temperature", "measured", current_temperature_2m)
+            InfluxWriter.write_to_influx("outside_temperature", "measured", current_temperature_2m, client=get_influx_client())
             logger.info(f"Outside Weather: temperature={current_temperature_2m}°C")
         except Exception as e:
             logger.error(f"Failed to write Outside Weather data to InfluxDB: {e}")
@@ -588,7 +588,7 @@ def qingping_sensor_task():
 
                 if co2 is not None and temp is not None and humidity is not None:
                     try:
-                        InfluxWriter.write_to_influx("qingping", "co2", co2, "temperature", temp, "humidity", humidity)
+                        InfluxWriter.write_to_influx("qingping", "co2", co2, "temperature", temp, "humidity", humidity, client=get_influx_client())
                         logger.info(f"Qingping Sensor [{device_name}]: co2={co2} ppm, temp={temp}°C, humidity={humidity}%")
                     except Exception as e:
                         logger.error(f"Failed to write Qingping data to InfluxDB: {e}")
@@ -630,7 +630,7 @@ async def fetch_vaillant_data():
 
                 if outdoor_temp is not None:
                     try:
-                        InfluxWriter.write_to_influx("vaillant_system", "outdoor_temperature", outdoor_temp)
+                        InfluxWriter.write_to_influx("vaillant_system", "outdoor_temperature", outdoor_temp, client=get_influx_client())
                         logger.info(f"Vaillant: outdoor_temperature={outdoor_temp}°C")
                     except Exception as e:
                         logger.error(f"Failed to write Vaillant outdoor temp to InfluxDB: {e}")
@@ -650,8 +650,7 @@ async def fetch_vaillant_data():
                                 InfluxWriter.write_to_influx(
                                     f"vaillant_zone_{zone_tag}",
                                     "current_temperature",
-                                    current_temp
-                                )
+                                    current_temp, client=get_influx_client())
                                 logger.info(f"Vaillant Zone [{zone_name}]: current_temp={current_temp}°C")
                             except Exception as e:
                                 logger.error(f"Failed to write Vaillant zone current temp to InfluxDB: {e}")
@@ -663,8 +662,7 @@ async def fetch_vaillant_data():
                                 InfluxWriter.write_to_influx(
                                     f"vaillant_zone_{zone_tag}",
                                     "desired_temperature",
-                                    desired_temp
-                                )
+                                    desired_temp, client=get_influx_client())
                                 logger.info(f"Vaillant Zone [{zone_name}]: desired_temp={desired_temp}°C")
                             except Exception as e:
                                 logger.error(f"Failed to write Vaillant zone desired temp to InfluxDB: {e}")
