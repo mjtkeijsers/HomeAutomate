@@ -127,18 +127,11 @@ Measurements:
 
 ```
 HomeAutomate/
-├── HomeAutomation.py      # Main application with scheduler and all tasks
-├── InfluxWriter.py        # InfluxDB write helper with connection pooling support
-├── ConfigReader.py        # Configuration file reader
-├── LocalDataReader.py     # Local data processing utilities
-├── OutsideWeather.py       # Standalone weather monitoring (legacy)
-├── YoulessElectra.py       # Standalone electra monitoring (legacy)
-├── NestReader.py          # Nest thermostat integration (legacy)
-├── vaillant.py             # Vaillant heating integration (legacy)
-├── GrafanaDashboard.json   # Pre-configured Grafana dashboard
-├── crontab.txt            # Example crontab entries (legacy)
-├── requirements.txt        # Python dependencies
-├── .env.example           # Environment variable template
+├── HomeAutomation.py    # Main application with scheduler and all tasks
+├── InfluxWriter.py      # InfluxDB write helper with connection pooling support
+├── GrafanaDashboard.json # Pre-configured Grafana dashboard
+├── requirements.txt      # Python dependencies
+├── .env.example         # Environment variable template (create from .env)
 └── README.md
 ```
 
@@ -168,8 +161,9 @@ HomeAutomate/
 
 3. **Configure environment:**
    ```bash
-   cp .env.example .env
-   # Edit .env with your settings
+   # Create .env file from the reference in README
+   # Or copy from a template if available
+   nano .env
    ```
 
 4. **Set up InfluxDB:**
@@ -189,12 +183,12 @@ HomeAutomate/
    - Vaillant: Set `MYVAILLANT_USERNAME`, `MYVAILLANT_PASSWORD`
    - Weather: Set `OUTSIDE_LATITUDE` and `OUTSIDE_LONGITUDE`
 
-6. **Run the application:**
+4. **Run the application:**
    ```bash
    python3 HomeAutomation.py
    ```
 
-7. **Set up Grafana:**
+5. **Set up Grafana:**
    - Add InfluxDB 2.x data source
    - Import `GrafanaDashboard.json`
 
@@ -406,7 +400,7 @@ def write_to_influx(measurement_name, key1, value1, ..., client=None, ...):
 
 ### For Development
 1. **Mock APIs** - Use mock responses for testing without hardware
-2. **Test individual tasks** - Run tasks manually for debugging
+2. **Test individual tasks** - Run tasks manually for debugging (see below)
 3. **Check InfluxDB queries** - Verify Flux queries in InfluxDB UI
 4. **Validate data** - Spot-check measurements against physical meters
 
@@ -432,13 +426,19 @@ logging.basicConfig(level=logging.DEBUG, ...)
 ```
 
 ### Test Individual Tasks
+You can test individual task functions directly since they're all defined in `HomeAutomation.py`:
+
 ```python
-from HomeAutomation import youless_electra_task, youless_gas_task
+# Import and run specific tasks
+from HomeAutomation import youless_electra_task, youless_gas_task, outside_weather_task
 
 # Run manually
 youless_electra_task()
 youless_gas_task()
+outside_weather_task()
 ```
+
+Note: These tasks require proper environment configuration (InfluxDB, API access, etc.) to run successfully.
 
 ---
 
@@ -462,9 +462,9 @@ Contributions are welcome! Please:
 
 | Date | Change |
 |------|--------|
-| 2026-10-10 | Refactored InfluxWriter to use connection pooling from HomeAutomation |
+| 2026-10-10 | Refactored InfluxWriter to use connection pooling from HomeAutomation; Removed legacy files; Updated comprehensive documentation |
 | 2025-11-30 | Updated README, adapted NestReader with Copilot |
 | 2024-12-08 | Added outside weather to dashboard |
-| 2024-12-04 | Added Nest thermostat monitoring |
-| 2024-12-01 | First version of Nest integration |
+| 2024-12-04 | Added Nest thermostat monitoring (legacy, now removed) |
+| 2024-12-01 | First version of Nest integration (legacy, now removed) |
 | 2024-11-28 | Recreated project after Raspberry Pi crash |
