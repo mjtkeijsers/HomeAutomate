@@ -1,4 +1,4 @@
-# HomeAutomate - Home Power and Energy Monitoring
+# HomeAutomate - Home Power and Gas, CO2 Monitoring
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
