@@ -33,34 +33,34 @@ A comprehensive **home automation and energy monitoring system** built on Raspbe
 ┌──────────────────────────────────────────────────────────────────────┐
 │                         HomeAutomate                                 │
 │  ┌───────────────────────────────────────────────────────────────┐   │
-│  │                    HomeAutomation.py                         │   │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌──────────────────────┐ │ │
-│  │  │  Scheduler  │  │  Tasks      │  │  InfluxWriter       │ │ │
-│  │  │ (schedule)  │→ │ (async/sync)│→ │ (fresh client       │ │ │
-│  │  │             │  │             │  │  per write)         │ │ │
-│  │  └─────────────┘  └─────────────┘  └──────────────────────┘ │ │
+│  │                    HomeAutomation.py                          │   │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌──────────────────────┐   │   │
+│  │  │  Scheduler  │  │  Tasks      │  │  InfluxWriter        │   │   │
+│  │  │ (schedule)  │→ │ (async/sync)│→ │ (fresh client        │   │   │
+│  │  │             │  │             │  │  per write)          │   │   │
+│  │  └─────────────┘  └─────────────┘  └──────────────────────┘   │   │
 │  └───────────────────────────────────────────────────────────────┘   │
-│                            ▲                                       │
-│                            │                                       │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                 │
-│  │  Youless    │  │  Qingping   │  │  Vaillant   │                 │
-│  │  API        │  │  API        │  │  API        │                 │
-│  └─────────────┘  └─────────────┘  └─────────────┘                 │
+│                            ▲                                         │
+│                            │                                         │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐                   │
+│  │  Youless    │  │  Qingping   │  │  Vaillant   │                   │
+│  │  API        │  │  API        │  │  API        │                   │
+│  └─────────────┘  └─────────────┘  └─────────────┘                   │
 └──────────────────────────────────────────────────────────────────────┘
                                │
                                ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │                       InfluxDB 2.x                                   │
-│  Buckets: youless (default)                                         │
-│  Measurements: system, gasmeter, gas_actuals, sluip,                │
-│               outside_temperature, qingping, vaillant_*             │
+│  Buckets: youless (default)                                          │
+│  Measurements: system, gasmeter, gas_actuals, sluip,                 │
+│               outside_temperature, qingping, vaillant_*              │
 └──────────────────────────────────────────────────────────────────────┘
                                │
                                ▼
 ┌──────────────────────────────────────────────────────────────────────┐
 │                          Grafana                                     │
-│  Pre-configured dashboard with energy and sensor visualizations     │
-└───────────────────────────────────────────────────────────────���──────┘
+│  Pre-configured dashboard with energy and sensor visualizations      │
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
