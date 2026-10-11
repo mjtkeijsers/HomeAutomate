@@ -4,3 +4,5 @@ requests-cache>=1.0.0
 retry-requests>=2.0.0
 openmeteo-requests>=1.0.0
 schedule>=1.1.0
+python-dotenv>=1.0.0
+myPyllant>=1.0.0
