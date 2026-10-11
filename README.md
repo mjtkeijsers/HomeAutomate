@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A comprehensive **home automation and energy monitoring system** built on Raspberry Pi using **Youless energy monitors**, **InfluxDB 2.x**, **Grafana**, and **Python**. This project provides real-time and historical visibility into your home's power and gas consumption, along with environmental data from various sensors.
+A comprehensive **home automation and energy monitoring system** built on Raspberry Pi using **Youless energy monitors**, **InfluxDB 2.x**, **Grafana**, and **Python**. This project provides real-time energy monitoring, weather context, and smart heating insights for a modern home setup.
 
 ---
 
@@ -30,38 +30,39 @@ A comprehensive **home automation and energy monitoring system** built on Raspbe
 ## Architecture Overview
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
+┌──────────────────────────────────────────────────────────────────────┐
 │                         HomeAutomate                            │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │                    HomeAutomation.py                        ││
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          ││
-│  │  │  Scheduler  │  │  Tasks      │  │ InfluxDB    │          ││
-│  │  │  (schedule  │─▶│ (async/sync)│─▶│ Client Pool │          ││
-│  │  └─────────────┘  └─────────────┘  └─────────────┘          ││
-│  └─────────────────────────────────────────────────────────────┘│
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                    HomeAutomation.py                        │   │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌──────────────┐      │   │
+│  │  │  Scheduler  │  │  Tasks      │  │ InfluxWriter  │      │   │
+│  │  │  (schedule  │─▶│ (async/sync)│─▶│ (fresh client │      │   │
+│  │  └─────────────┘  └─────────────┘  │ per write)    │      │   │
+│  │                                        └──────────────┘      │   │
+│  └─────────────────────────────────────────────────────────────┘   │
 │       ▲                  ▲                 ▲                    │
 │       │                  │                 │                    │
 │  ┌────┴────┐       ┌─────┴────┐      ┌─────┴────┐               │
 │  │Youless  │       │Qingping  │      │Vaillant  │               │
 │  │  API    │       │  API     │      │  API     │               │
 │  └─────────┘       └──────────┘      └──────────┘               │
-└─────────────────────────────────────────────────────────────────┘
-                      │
-                      ▼
-┌─────────────────────────────────────────────────────────────────┐
+└──────────────────────────────────────────────────────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────────────────────────────┐
 │                    InfluxDB 2.x                                 │
-│  ┌─────────────────────────────────────────────────────────────┐│
-│  │  Buckets: youless (default)                                 ││
-│  │  Measurements: system, gasmeter, gas_actuals, sluip,        ││
-│  │                 outside_temperature, qingping, vaillant_*   ││
-│  └─────────────────────────────────────────────────────────────┘│
-└─────────────────────────────────────────────────────────────────┘
-                      │
-                      ▼
-┌─────────────────────────────────────────────────────────────────┐
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  Buckets: youless (default)                                 │   │
+│  │  Measurements: system, gasmeter, gas_actuals, sluip,        │   │
+│  │                 outside_temperature, qingping, vaillant_*   │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+└──────────────────────────────────────────────────────────────────────┘
+                       │
+                       ▼
+┌──────────────────────────────────────────────────────────────────────┐
 │                    Grafana                                      │
 │  Pre-configured dashboard with energy and sensor visualizations │
-└─────────────────────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -71,14 +72,13 @@ A comprehensive **home automation and energy monitoring system** built on Raspbe
 ### 1. Consolidated Scheduling
 Instead of multiple cron jobs, **HomeAutomation.py** uses a single Python process with the `schedule` library. This provides:
 - **Centralized control** - One process to monitor and manage
-- **Connection pooling** - Reusable HTTP and InfluxDB clients
 - **Consistent error handling** - Unified logging and retry logic
 - **Precise timing** - Tasks run at exact minute marks (e.g., :00, :05, :10)
 
-### 2. Connection Management
-- **InfluxDB Client Pooling**: A single client is maintained and reused across all tasks, with automatic reconnection after 1 hour of inactivity
-- **HTTP Session Pooling**: A persistent `requests.Session` reduces connection overhead for API calls
-- **Stale Connection Detection**: Clients are automatically reconnected if they've been idle too long
+### 2. Independent InfluxDB Writes
+- **Fresh client per write**: `InfluxWriter.write_to_influx()` creates a new `InfluxDBClient` and `write_api` for each write operation
+- **Short-lived connections**: Each write opens, writes, and closes immediately to avoid stale or unrecoverable clients
+- **Reliability over reuse**: This removes the failure mode where a long-lived client becomes stale and is never recovered
 
 ### 3. Error Handling Strategy
 - **Task-Level Decorators**: `@safe_task` decorator wraps every task with consistent error handling
@@ -107,7 +107,7 @@ Instead of multiple cron jobs, **HomeAutomation.py** uses a single Python proces
 | Vaillant Heating | Every 10 min | MyPyllant API | vaillant_system, vaillant_zone_* |
 
 ### InfluxDB Schema
-```
+```text
 Bucket: youless (configurable via INFLUX_BUCKET)
 
 Measurements:
@@ -125,10 +125,10 @@ Measurements:
 
 ## Project Structure
 
-```
+```text
 HomeAutomate/
 ├── HomeAutomation.py    # Main application with scheduler and all tasks
-├── InfluxWriter.py      # InfluxDB write helper with connection pooling support
+├── InfluxWriter.py      # InfluxDB helper using a fresh client per write
 ├── GrafanaDashboard.json # Pre-configured Grafana dashboard
 ├── requirements.txt      # Python dependencies
 ├── .env.example         # Environment variable template (create from .env)
@@ -143,8 +143,8 @@ HomeAutomate/
 - Raspberry Pi (or any Linux system)
 - Python 3.8+
 - **Youless energy monitor** (LS120 or similar) connected to your meters
-- **Qinping CO2 measurement device**, readout via QP cloud
-- ***Vaillant Heat Pump and Thermostat**, Readout via Vaillant Cloud
+- **Qingping CO2 measurement device**, readout via QP cloud
+- **Vaillant Heat Pump and Thermostat**, readout via Vaillant Cloud
 - InfluxDB 2.x server (local or remote)
 - Grafana server (local or remote)
 
@@ -171,7 +171,7 @@ HomeAutomate/
 4. **Set up InfluxDB:**
    - Create a bucket (default: `youless`)
    - Create an API token with write access
-   - Configure in `.env` or .bashrc:
+   - Configure in `.env` or `.bashrc`:
      ```
      INFLUX_URL=http://localhost:8086
      INFLUX_TOKEN=your-api-token
@@ -185,12 +185,12 @@ HomeAutomate/
    - Vaillant: Set `MYVAILLANT_USERNAME`, `MYVAILLANT_PASSWORD`
    - Weather: Set `OUTSIDE_LATITUDE` and `OUTSIDE_LONGITUDE`
 
-4. **Run the application:**
+6. **Run the application:**
    ```bash
    python3 HomeAutomation.py
    ```
 
-5. **Set up Grafana:**
+7. **Set up Grafana:**
    - Add InfluxDB 2.x data source
    - Import `GrafanaDashboard.json`
 
@@ -216,7 +216,7 @@ HomeAutomate/
 | `MYVAILLANT_COUNTRY` | No | `netherlands` | Country for API |
 
 ### requirements.txt
-```
+```text
 influxdb-client>=1.18.0
 requests>=2.28.0
 requests-cache>=1.0.0
@@ -236,17 +236,12 @@ myPyllant>=1.0.0
 The main application follows a **single-process, scheduled-task** architecture:
 
 ```python
-# Connection Management (global, pooled)
-_influx_client = None      # Persistent InfluxDB client
-_http_session = None       # Persistent HTTP session
-
 # Task Decorator
 @safe_task
 def example_task():
     """All tasks use this decorator for consistent error handling."""
-    client = get_influx_client()  # Gets pooled client
-    # ... do work ...
-    InfluxWriter.write_to_influx(..., client=client)  # Reuses client
+    # Read API data, transform it, then write to InfluxDB
+    InfluxWriter.write_to_influx("measurement", "field", value)
 
 # Scheduler Setup
 def setup_schedule():
@@ -264,26 +259,21 @@ def main():
 
 ### Key Components
 
-#### 1. **Connection Pooling (`get_influx_client()`)**
+#### 1. **InfluxWriter write helper**
 ```python
-def get_influx_client(force_reconnect=False):
-    global _influx_client, _influx_client_created_at
-    
-    # Auto-reconnect if client is stale (>1 hour old)
-    if _influx_client is not None and not force_reconnect:
-        age = time.time() - _influx_client_created_at
-        if age > _influx_client_max_age:
-            force_reconnect = True
-    
-    if _influx_client is None or force_reconnect:
-        # Create new client
-        _influx_client = InfluxDBClient(url=INFLUX_URL, 
-                                         token=INFLUX_TOKEN, 
-                                         org=INFLUX_ORG)
-        _influx_client_created_at = time.time()
-    
-    return _influx_client
+def write_to_influx(measurement_name, key1, value1, key2=None, value2=None,
+                   key3=None, value3=None, bucket=None, org=None):
+    """Create a fresh client for each write and close it immediately."""
+    client = InfluxDBClient(url=ifurl, token=iftoken, org=iforg)
+    write_api = client.write_api(write_options=SYNCHRONOUS)
+    try:
+        write_api.write(bucket=ifbucket, org=iforg, record=body)
+    finally:
+        write_api.close()
+        client.close()
 ```
+
+This design intentionally avoids long-lived pooled Influx clients, because stale clients can become unusable and are difficult to recover reliably.
 
 #### 2. **Safe Task Decorator**
 ```python
@@ -319,27 +309,6 @@ def safe_request(method, url, max_retries=3, timeout=10, **kwargs):
             wait_time = 0.5 * (2 ** attempt)
             time.sleep(wait_time)
     raise last_error
-```
-
-#### 4. **InfluxWriter with Client Pooling**
-```python
-def write_to_influx(measurement_name, key1, value1, ..., client=None, ...):
-    """
-    If client is provided, reuse it (connection pooling).
-    Otherwise, create a new client and close it after writing.
-    """
-    own_client = False
-    
-    if client is None:
-        client = InfluxDBClient(url=ifurl, token=iftoken, org=iforg)
-        own_client = True
-    
-    try:
-        # Build and write data point
-        write_api.write(bucket=ifbucket, org=iforg, record=body)
-    finally:
-        if own_client:
-            client.close()
 ```
 
 ---
@@ -464,6 +433,7 @@ Contributions are welcome! Please:
 
 | Date | Change |
 |------|--------|
+| 2026-10-11 | Refactored InfluxDB writes to use fresh clients per write to avoid stale/unrecoverable connection issues; updated docs to remove pooled-client guidance |
 | 2026-10-10 | Refactored InfluxWriter to use connection pooling from HomeAutomation; Removed legacy files; Updated comprehensive documentation |
 | 2025-11-30 | Updated README, adapted NestReader with Copilot |
 | 2024-12-08 | Added outside weather to dashboard |
