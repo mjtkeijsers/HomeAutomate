@@ -31,36 +31,36 @@ A comprehensive **home automation and energy monitoring system** built on Raspbe
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         HomeAutomate                               │
-│  ┌─────────────────────────────────────────────────────────────┐  │
-│  │                    HomeAutomation.py                          │  │
-│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          │  │
-│  │  │  Scheduler   │  │   Tasks      │  │  InfluxDB    │          │  │
-│  │  │  (schedule)  │──▶│  (async/sync)│──▶│  Client Pool │          │  │
-│  │  └─────────────┘  └─────────────┘  └─────────────┘          │  │
-│  └─────────────────────────────────────────────────────────────┘  │
-│       ▲                  ▲                  ▲                        │
-│       │                  │                  │                        │
-│  ┌────┴────┐      ┌─────┴─────┐      ┌─────┴─────┐                 │
-│  │Youless  │      │Qingping  │      │Vaillant  │                 │
-│  │  API    │      │  API     │      │  API     │                 │
-│  └─────────┘      └──────────┘      └──────────┘                 │
+│                         HomeAutomate                            │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │                    HomeAutomation.py                        ││
+│  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐          ││
+│  │  │  Scheduler  │  │  Tasks      │  │ InfluxDB    │          ││
+│  │  │  (schedule  │─▶│ (async/sync)│─▶│ Client Pool │          ││
+│  │  └─────────────┘  └─────────────┘  └─────────────┘          ││
+│  └─────────────────────────────────────────────────────────────┘│
+│       ▲                  ▲                 ▲                    │
+│       │                  │                 │                    │
+│  ┌────┴────┐       ┌─────┴────┐      ┌─────┴────┐               │
+│  │Youless  │       │Qingping  │      │Vaillant  │               │
+│  │  API    │       │  API     │      │  API     │               │
+│  └─────────┘       └──────────┘      └──────────┘               │
 └─────────────────────────────────────────────────────────────────┘
                       │
                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    InfluxDB 2.x                                  │
-│  ┌─────────────────────────────────────────────────────────────┐  │
-│  │  Buckets: youless (default)                               │  │
-│  │  Measurements: system, gasmeter, gas_actuals, sluip,         │  │
-│  │                 outside_temperature, qingping, vaillant_*      │  │
-│  └─────────────────────────────────────────────────────────────┘  │
+│                    InfluxDB 2.x                                 │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │  Buckets: youless (default)                                 ││
+│  │  Measurements: system, gasmeter, gas_actuals, sluip,        ││
+│  │                 outside_temperature, qingping, vaillant_*   ││
+│  └─────────────────────────────────────────────────────────────┘│
 └─────────────────────────────────────────────────────────────────┘
                       │
                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Grafana                                       │
-│  Pre-configured dashboard with energy and sensor visualizations    │
+│                    Grafana                                      │
+│  Pre-configured dashboard with energy and sensor visualizations │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -143,6 +143,8 @@ HomeAutomate/
 - Raspberry Pi (or any Linux system)
 - Python 3.8+
 - **Youless energy monitor** (LS120 or similar) connected to your meters
+- **Qinping CO2 measurement device**, readout via QP cloud
+- ***Vaillant Heat Pump and Thermostat**, Readout via Vaillant Cloud
 - InfluxDB 2.x server (local or remote)
 - Grafana server (local or remote)
 
@@ -169,7 +171,7 @@ HomeAutomate/
 4. **Set up InfluxDB:**
    - Create a bucket (default: `youless`)
    - Create an API token with write access
-   - Configure in `.env`:
+   - Configure in `.env` or .bashrc:
      ```
      INFLUX_URL=http://localhost:8086
      INFLUX_TOKEN=your-api-token
