@@ -2,7 +2,7 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A comprehensive **home automation and energy monitoring system** built on Raspberry Pi using **Youless energy monitors**, **InfluxDB 2.x**, **Grafana**, and **Python**. This project provides real-time[...] 
+A comprehensive **home automation and energy monitoring system** built on Raspberry Pi using **Youless energy monitors, QingPing CO2 meter and Vaillant Thermostat/Heat Pump**, **InfluxDB 2.x**, **Grafana**, and **Python**. This project provides real-time[...] 
 
 ---
 
