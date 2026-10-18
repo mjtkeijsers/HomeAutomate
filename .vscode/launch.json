@@ -6,8 +6,8 @@
       "type": "debugpy",
       "request": "launch",
       "program": "${workspaceFolder}/HomeAutomation.py",
-      "console": "integratedTerminal",
-      "args": ["--test"]
+      "console": "integratedTerminal"
+      
     }
   ]
 }

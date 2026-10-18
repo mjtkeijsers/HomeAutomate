@@ -3,6 +3,7 @@
 HomeAutomation.py - Consolidated home automation application
 Merges all cron-scheduled tasks into a single forever loop with proper timing.
 Maintains database interactions with InfluxDB 2.x and Grafana compatibility.
+
 """
 
 import argparse
@@ -857,7 +858,7 @@ def setup_schedule():
         schedule.every().hour.at(f":{minute:02d}").do(influx_gas_task).tag(f"influx_gas_{minute}")
 
     schedule.every(15).minutes.do(outside_weather_task)
-    schedule.every().day.at("01:00").do(influx_lowest_power_task)
+    schedule.every().day.at("05:45").do(influx_lowest_power_task)
     schedule.every(10).minutes.do(qingping_sensor_task)
     schedule.every(10).minutes.do(vaillant_heating_task)
 
