@@ -5,6 +5,7 @@ Merges all cron-scheduled tasks into a single forever loop with proper timing.
 Maintains database interactions with InfluxDB 2.x and Grafana compatibility.
 """
 
+import argparse
 import requests
 import re
 import json
@@ -16,6 +17,7 @@ import datetime
 from datetime import timedelta, timezone
 import time
 import sys
+
 import logging
 import schedule
 import base64
@@ -23,7 +25,7 @@ import os
 import asyncio
 from dotenv import load_dotenv
 from influxdb_client import InfluxDBClient
-from functools import wraps
+from functools import partial, wraps
 from myPyllant.api import MyPyllantAPI
 
 # Load environment variables from .env file if present
@@ -41,6 +43,7 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+logging.getLogger("myPyllant").setLevel(logging.WARNING)
 
 
 # ============================================================================
@@ -68,9 +71,10 @@ def get_env(name, default=None, required=False, cast=None):
 # CONFIGURATION CONSTANTS
 # ============================================================================
 INFLUX_URL = get_env("INFLUX_URL", "http://127.0.0.1:8086")
-INFLUX_TOKEN = get_env("INFLUX_TOKEN", required=True)
+INFLUX_TOKEN = get_env("INFLUX_TOKEN")
 INFLUX_ORG = get_env("INFLUX_ORG", "ASML")
 INFLUX_BUCKET = get_env("INFLUX_BUCKET", "youless")
+TEST_MODE = False
 
 OUTSIDE_LATITUDE = get_env("OUTSIDE_LATITUDE", cast=float)
 OUTSIDE_LONGITUDE = get_env("OUTSIDE_LONGITUDE", cast=float)
@@ -80,6 +84,7 @@ REQUEST_TIMEOUT_DEFAULT = 10  # seconds
 REQUEST_TIMEOUT_SLOW_API = 15  # for slower APIs like Vaillant
 RETRY_MAX_ATTEMPTS = 3
 RETRY_BACKOFF_FACTOR = 0.5  # exponential backoff: 0.5s, 1s, 2s
+SHELLY_IP = get_env("SHELLY_IP", "192.168.1.217")
 
 # InfluxDB client connection pool (persistent, with staleness tracking)
 _influx_client = None
@@ -163,6 +168,8 @@ def get_influx_client(force_reconnect=False):
 
     # Create or reconnect
     if _influx_client is None or force_reconnect:
+        if not INFLUX_TOKEN:
+            raise RuntimeError("INFLUX_TOKEN is required for InfluxDB queries")
         if _influx_client is not None:
             try:
                 _influx_client.close()
@@ -174,6 +181,36 @@ def get_influx_client(force_reconnect=False):
         logger.debug("Created new InfluxDB client connection")
 
     return _influx_client
+
+
+def write_to_influx(
+    measurement_name, key1, value1, key2=None, value2=None, key3=None, value3=None
+):
+    """Write measurements to InfluxDB, or print them when running in test mode."""
+    fields = {key1: value1}
+    if key2 is not None and value2 is not None:
+        fields[key2] = value2
+    if key3 is not None and value3 is not None:
+        fields[key3] = value3
+
+    if TEST_MODE:
+        print(
+            f"[TEST MODE] InfluxDB write suppressed: "
+            f"measurement={measurement_name!r}, fields={fields!r}",
+            flush=True
+        )
+        return
+
+    InfluxWriter.write_to_influx(
+        measurement_name,
+        key1,
+        value1,
+        key2,
+        value2,
+        key3,
+        value3,
+        client=get_influx_client()
+    )
 
 
 def close_influx_client():
@@ -314,12 +351,49 @@ def youless_electra_task():
 
     if p1 is not None and p2 is not None and pwr is not None:
         try:
-            InfluxWriter.write_to_influx("system", "electra_low", p1, "electra_high", p2, "pwr", pwr, client=get_influx_client())
+            write_to_influx("system", "electra_low", p1, "electra_high", p2, "pwr", pwr)
             logger.info(f"Youless Electra: p1={p1} kWh, p2={p2} kWh, pwr={pwr} W")
         except Exception as e:
             logger.error(f"Failed to write Youless Electra data to InfluxDB: {e}")
     else:
         logger.warning(f"Youless Electra: Missing values (p1={p1}, p2={p2}, pwr={pwr})")
+
+
+# ============================================================================
+# SHELLY EM TASK (every minute at :00)
+# ============================================================================
+@safe_task
+def shelly_em_task():
+    """Read active power from Shelly EM Gen3, convert to kW, and write to InfluxDB."""
+    logger.info("Running Shelly EM task...")
+
+    url = f"http://{SHELLY_IP}/rpc/EM1.GetStatus?id=0"
+
+    try:
+        response = safe_request("GET", url, timeout=REQUEST_TIMEOUT_DEFAULT)
+    except requests.exceptions.RequestException:
+        return
+
+    try:
+        data = response.json()
+    except Exception as err:
+        logger.error(f"Shelly EM: JSON parsing error: {err}")
+        return
+
+    logger.debug(f"Shelly EM: raw_data={data}")
+    act_power = data.get("act_power")
+
+    if act_power is not None:
+        try:
+            power_watts = float(act_power)
+            power_kw = power_watts / 1000.0
+
+            write_to_influx("shelly", "act_power_kw", power_kw)
+            logger.info(f"Shelly EM: act_power={power_watts} W ({power_kw:.3f} kW)")
+        except Exception as err:
+            logger.error(f"Failed to write Shelly EM data: {err}")
+    else:
+        logger.warning("Shelly EM: Missing 'act_power' value in response")
 
 
 # ============================================================================
@@ -340,7 +414,7 @@ def youless_gas_task():
 
     if gas is not None:
         try:
-            InfluxWriter.write_to_influx("gasmeter", "gas", gas, client=get_influx_client())
+            write_to_influx("gasmeter", "gas", gas)
             logger.info(f"Youless Gas: gas={gas}m3")
         except Exception as e:
             logger.error(f"Failed to write Youless Gas data to InfluxDB: {e}")
@@ -391,7 +465,7 @@ def influx_gas_task():
                 gas_m3_hr = (gas_n0_f - gas_n1_f) * (60 / minutes_elapsed)
 
                 try:
-                    InfluxWriter.write_to_influx(measurement_name, "gas_m3_hr", gas_m3_hr, client=get_influx_client())
+                    write_to_influx(measurement_name, "gas_m3_hr", gas_m3_hr)
                     logger.info(f"Influx Gas: gas_m3_hr={gas_m3_hr:.4f} m3/h (interval: {minutes_elapsed:.1f} min)")
                 except Exception as e:
                     logger.error(f"Failed to write Influx Gas data: {e}")
@@ -469,7 +543,7 @@ def influx_lowest_power_task():
             if res is not None:
                 logger.info(f"Lowest Power for {s}: {res:.0f} W (evening: {res_evening} W, night: {res_night} W)")
                 try:
-                    InfluxWriter.write_to_influx("sluip", "low", int(res), client=get_influx_client())
+                    write_to_influx("sluip", "low", int(res))
                 except Exception as e:
                     logger.error(f"Failed to write Lowest Power data to InfluxDB: {e}")
             else:
@@ -510,7 +584,7 @@ def outside_weather_task():
         current_temperature_2m = current.Variables(0).Value()
 
         try:
-            InfluxWriter.write_to_influx("outside_temperature", "measured", current_temperature_2m, client=get_influx_client())
+            write_to_influx("outside_temperature", "measured", current_temperature_2m)
             logger.info(f"Outside Weather: temperature={current_temperature_2m}°C")
         except Exception as e:
             logger.error(f"Failed to write Outside Weather data to InfluxDB: {e}")
@@ -588,7 +662,7 @@ def qingping_sensor_task():
 
                 if co2 is not None and temp is not None and humidity is not None:
                     try:
-                        InfluxWriter.write_to_influx("qingping", "co2", co2, "temperature", temp, "humidity", humidity, client=get_influx_client())
+                        write_to_influx("qingping", "co2", co2, "temperature", temp, "humidity", humidity)
                         logger.info(f"Qingping Sensor [{device_name}]: co2={co2} ppm, temp={temp}°C, humidity={humidity}%")
                     except Exception as e:
                         logger.error(f"Failed to write Qingping data to InfluxDB: {e}")
@@ -628,29 +702,92 @@ async def fetch_vaillant_data():
                 elif hasattr(system, "state") and isinstance(system.state, dict):
                     outdoor_temp = system.state.get("outdoor_temperature")
 
-                if outdoor_temp is not None:
+                system_state = system.state.get("system", {}) if isinstance(system.state, dict) else {}
+                system_flow_temperature = system_state.get("system_flow_temperature")
+                system_water_pressure = system_state.get("system_water_pressure")
+
+                system_fields = []
+                system_values = []
+                for field, value, unit in (
+                    ("outdoor_temperature", outdoor_temp, "°C"),
+                    ("system_flow_temperature", system_flow_temperature, "°C"),
+                    ("system_water_pressure", system_water_pressure, "bar"),
+                ):
+                    if value is not None:
+                        system_fields.extend((field, value))
+                        system_values.append(f"{field}={value}{unit}")
+
+                if system_fields:
                     try:
-                        InfluxWriter.write_to_influx("vaillant_system", "outdoor_temperature", outdoor_temp, client=get_influx_client())
-                        logger.info(f"Vaillant: outdoor_temperature={outdoor_temp}°C")
+                        write_to_influx("vaillant_system", *system_fields)
+                        logger.info(f"Vaillant System: {', '.join(system_values)}")
                     except Exception as e:
-                        logger.error(f"Failed to write Vaillant outdoor temp to InfluxDB: {e}")
+                        logger.error(f"Failed to write Vaillant system data to InfluxDB: {e}")
                 else:
-                    logger.warning("Vaillant: outdoor_temperature not available")
+                    logger.warning("Vaillant: No system temperature or pressure values available")
+
+                for circuit in system.circuits:
+                    circuit_fields = []
+                    circuit_values = []
+                    if circuit.current_circuit_flow_temperature is not None:
+                        circuit_fields.extend(
+                            [
+                                "current_circuit_flow_temperature",
+                                circuit.current_circuit_flow_temperature,
+                            ]
+                        )
+                        circuit_values.append(
+                            f"current_flow_temperature="
+                            f"{circuit.current_circuit_flow_temperature}°C"
+                        )
+                    if circuit.heating_circuit_flow_setpoint is not None:
+                        circuit_fields.extend(
+                            [
+                                "heating_circuit_flow_setpoint",
+                                circuit.heating_circuit_flow_setpoint,
+                            ]
+                        )
+                        circuit_values.append(
+                            f"heating_flow_setpoint="
+                            f"{circuit.heating_circuit_flow_setpoint}°C"
+                        )
+
+                    if circuit_fields:
+                        try:
+                            write_to_influx(
+                                f"vaillant_circuit_{circuit.index}",
+                                *circuit_fields,
+                            )
+                            logger.info(
+                                f"Vaillant Circuit [{circuit.index}]: "
+                                f"{', '.join(circuit_values)}"
+                            )
+                        except Exception as e:
+                            logger.error(
+                                f"Failed to write Vaillant circuit "
+                                f"{circuit.index} data to InfluxDB: {e}"
+                            )
+                    else:
+                        logger.warning(
+                            f"Vaillant Circuit [{circuit.index}]: "
+                            "flow temperature and setpoint are unavailable"
+                        )
 
                 if getattr(system, "zones", None):
                     for zone in system.zones:
                         zone_name = getattr(zone, "name", "Unnamed Zone")
                         current_temp = getattr(zone, "current_room_temperature", None)
                         desired_temp = getattr(zone, "desired_room_temperature_setpoint", None)
+                        current_humidity = getattr(zone, "current_room_humidity", None)
 
                         zone_tag = zone_name.replace(" ", "_").replace("-", "_").lower()
 
                         if current_temp is not None:
                             try:
-                                InfluxWriter.write_to_influx(
+                                write_to_influx(
                                     f"vaillant_zone_{zone_tag}",
                                     "current_temperature",
-                                    current_temp, client=get_influx_client())
+                                    current_temp)
                                 logger.info(f"Vaillant Zone [{zone_name}]: current_temp={current_temp}°C")
                             except Exception as e:
                                 logger.error(f"Failed to write Vaillant zone current temp to InfluxDB: {e}")
@@ -659,15 +796,35 @@ async def fetch_vaillant_data():
 
                         if desired_temp is not None:
                             try:
-                                InfluxWriter.write_to_influx(
+                                write_to_influx(
                                     f"vaillant_zone_{zone_tag}",
                                     "desired_temperature",
-                                    desired_temp, client=get_influx_client())
+                                    desired_temp)
                                 logger.info(f"Vaillant Zone [{zone_name}]: desired_temp={desired_temp}°C")
                             except Exception as e:
                                 logger.error(f"Failed to write Vaillant zone desired temp to InfluxDB: {e}")
                         else:
                             logger.warning(f"Vaillant Zone [{zone_name}]: desired_temperature not available")
+
+                        if current_humidity is not None:
+                            try:
+                                write_to_influx(
+                                    f"vaillant_zone_{zone_tag}",
+                                    "current_room_humidity",
+                                    current_humidity)
+                                logger.info(
+                                    f"Vaillant Zone [{zone_name}]: "
+                                    f"current_room_humidity={current_humidity}%"
+                                )
+                            except Exception as e:
+                                logger.error(
+                                    f"Failed to write Vaillant zone humidity to InfluxDB: {e}"
+                                )
+                        else:
+                            logger.warning(
+                                f"Vaillant Zone [{zone_name}]: "
+                                "current_room_humidity not available"
+                            )
                 else:
                     logger.warning("Vaillant: No zones found for this system")
 
@@ -691,6 +848,7 @@ def setup_schedule():
     """Configure all scheduled tasks."""
 
     schedule.every().minute.at(":00").do(youless_electra_task)
+    schedule.every().minute.at(":00").do(shelly_em_task)
 
     for minute in [1, 6, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56]:
         schedule.every().hour.at(f":{minute:02d}").do(youless_gas_task).tag(f"youless_gas_{minute}")
@@ -706,17 +864,62 @@ def setup_schedule():
     logger.info("Schedule configured successfully")
 
 
+def run_test_tasks():
+    """Run each distinct scheduled task once, pausing briefly between tasks."""
+    scheduled_tasks = []
+    seen_tasks = set()
+    for job in schedule.get_jobs():
+        task = job.job_func
+        if isinstance(task, partial):
+            task = task.func
+        if task not in seen_tasks:
+            scheduled_tasks.append(task)
+            seen_tasks.add(task)
+
+    logger.info("Running each scheduled task once in test mode...")
+
+    for index, task in enumerate(scheduled_tasks):
+        if index:
+            time.sleep(1)
+        logger.info(f"Test run: {task.__name__}")
+        task()
+
+
 # ============================================================================
 # MAIN LOOP
 # ============================================================================
 def main():
     """Main application loop."""
+    parser = argparse.ArgumentParser(description="Run the HomeAutomation scheduler.")
+    parser.add_argument(
+        "--test",
+        action="store_true",
+        help="print InfluxDB measurements instead of writing them"
+    )
+    args = parser.parse_args()
+
+    global TEST_MODE
+    TEST_MODE = args.test
+    if not TEST_MODE and not INFLUX_TOKEN:
+        raise RuntimeError("INFLUX_TOKEN is required unless running with --test")
+
+    if TEST_MODE:
+        logging.getLogger().setLevel(logging.DEBUG)
+
     logger.info("Starting HomeAutomation application...")
+    if TEST_MODE:
+        logger.info("Test mode enabled: debug logging is active and InfluxDB writes will be printed to stdout")
     logger.info("================================")
 
     setup_schedule()
 
     try:
+        if TEST_MODE:
+            run_test_tasks()
+            close_influx_client()
+            close_http_session()
+            return
+
         while True:
             schedule.run_pending()
             time.sleep(1)

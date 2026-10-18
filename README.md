@@ -17,6 +17,7 @@ A comprehensive **home automation and energy monitoring system** built on Raspbe
 
 ### Sensor Integration
 - **Youless Electra/Gas Meters** - Primary energy monitoring
+- **Shelly EM Gen3** - Active power monitoring
 - **Qingping Sensors** - CO₂, temperature, and humidity monitoring
 - **Vaillant Heating System** - Outdoor temperature, zone temperatures, and setpoints
 - **Open-Meteo Weather** - External temperature data for context
@@ -97,6 +98,7 @@ Instead of multiple cron jobs, **HomeAutomation.py** uses a single Python proces
 | Task | Frequency | Data Source | Measurements |
 |------|-----------|--------------|--------------|
 | Youless Electra | Every minute (:00) | Youless API | system (p1, p2, pwr) |
+| Shelly EM | Every minute (:00) | Shelly EM Gen3 | shelly (act_power_kw) |
 | Youless Gas | Every 5 min (:01, :06, ...) | Youless API | gasmeter (gas) |
 | Influx Gas Rate | Every 5 min (:02, :07, ...) | InfluxDB | gas_actuals (gas_m3_hr) |
 | Lowest Power | Daily at 01:00 | InfluxDB | sluip (low) |
@@ -115,8 +117,12 @@ Measurements:
   sluip           - Baseload: low (W)
   outside_temperature - Weather: measured (°C)
   qingping        - Sensors: co2 (ppm), temperature (°C), humidity (%)
-  vaillant_system  - Heating: outdoor_temperature (°C)
-  vaillant_zone_*  - Zones: current_temperature (°C), desired_temperature (°C)
+  vaillant_system  - Heating: outdoor_temperature (°C),
+                     system_flow_temperature (°C), system_water_pressure (bar)
+  vaillant_circuit_* - Circuits: current_circuit_flow_temperature (°C),
+                        heating_circuit_flow_setpoint (°C)
+  vaillant_zone_*  - Zones: current_temperature (°C), desired_temperature (°C),
+                     current_room_humidity (%)
 ```
 
 ---
@@ -188,6 +194,15 @@ HomeAutomate/
    python3 HomeAutomation.py
    ```
 
+   To run in test mode, which prints each would-be InfluxDB measurement to stdout
+   instead of writing it, runs each scheduled task once with a one-second pause
+   between tasks, enables debug logging, and then exits, use:
+   ```bash
+   python3 HomeAutomation.py --test
+   ```
+   This mode still polls configured devices and APIs; InfluxDB-backed calculations
+   may read existing data, but the application will not write measurements.
+
 7. **Set up Grafana:**
    - Add InfluxDB 2.x data source
    - Import `GrafanaDashboard.json`
@@ -222,7 +237,7 @@ retry-requests>=2.0.0
 openmeteo-requests>=1.0.0
 schedule>=1.1.0
 python-dotenv>=1.0.0
-myPyllant>=1.0.0
+myPyllant>=0.9.18
 ```
 
 ---
@@ -319,6 +334,12 @@ def safe_request(method, url, max_retries=3, timeout=10, **kwargs):
 - **Data**: p1 (low tariff kWh), p2 (high tariff kWh), pwr (instantaneous power W)
 - **Output**: `system` measurement with electra_low, electra_high, pwr fields
 
+### Shelly EM Task
+- **Frequency**: Every minute at :00
+- **API**: `http://192.168.1.217/rpc/EM1.GetStatus?id=0` (configurable with `SHELLY_IP`)
+- **Data**: active power in watts, converted to kilowatts
+- **Output**: `shelly` measurement with act_power_kw field
+
 ### Youless Gas Task
 - **Frequency**: Every 5 minutes (offset by 1 minute)
 - **API**: `http://youless/e` (same endpoint, different field)
@@ -353,8 +374,8 @@ def safe_request(method, url, max_retries=3, timeout=10, **kwargs):
 ### Vaillant Heating Task
 - **Frequency**: Every 10 minutes
 - **API**: MyPyllant API (async)
-- **Data**: Outdoor temperature, zone temperatures, desired setpoints
-- **Output**: `vaillant_system` (outdoor_temperature), `vaillant_zone_*` (current_temperature, desired_temperature)
+- **Data**: Outdoor temperature, system flow temperature and water pressure, circuit flow temperature and setpoint, zone temperatures, humidity, desired setpoints
+- **Output**: `vaillant_system` (outdoor_temperature, system_flow_temperature, system_water_pressure), `vaillant_circuit_*` (current_circuit_flow_temperature, heating_circuit_flow_setpoint), `vaillant_zone_*` (current_temperature, desired_temperature, current_room_humidity)
 
 ---
 
