@@ -18,6 +18,7 @@ A comprehensive **home automation and energy monitoring system** built on Raspbe
 ### Sensor Integration
 - **Youless Electra/Gas Meters** - Primary energy monitoring
 - **Shelly EM Gen3** - Active power monitoring
+- **Tuya Power Plug** - Local active power monitoring
 - **Qingping Sensors** - CO₂, temperature, and humidity monitoring
 - **Vaillant Heating System** - Outdoor temperature, zone temperatures, and setpoints
 - **Open-Meteo Weather** - External temperature data for context
@@ -87,7 +88,7 @@ Instead of multiple cron jobs, **HomeAutSchedulerMain.py** uses a single Python 
 | Tuya Power Plug | Every minute (:00) | Local Tuya device | tuya_power_plug (act_power_kw) |
 | Youless Gas | Every 5 min (:01, :06, ...) | Youless API | gasmeter (gas) |
 | Influx Gas Rate | Every 5 min (:02, :07, ...) | InfluxDB | gas_actuals (gas_m3_hr) |
-| Lowest Power | Daily at 01:00 | InfluxDB | sluip (low) |
+| Lowest Power | Daily at 05:45 | InfluxDB | sluip (low) |
 | Outside Weather | Every 15 min | Open-Meteo API | outside_temperature (measured) |
 | Qingping Sensors | Every 10 min | Qingping API | qingping (co2, temperature, humidity) |
 | Vaillant Heating | Every 10 min | MyPyllant API | vaillant_system, vaillant_zone_* |
@@ -101,6 +102,7 @@ Measurements:
   gasmeter        - Gas: gas (m³)
   gas_actuals     - Gas rate: gas_m3_hr (m³/h)
   sluip           - Baseload: low (W)
+  tuya_power_plug - Tuya plug: act_power_kw (kW)
   outside_temperature - Weather: measured (°C)
   qingping        - Sensors: co2 (ppm), temperature (°C), humidity (%)
   vaillant_system  - Heating: outdoor_temperature (°C),
@@ -232,6 +234,7 @@ openmeteo-requests>=1.0.0
 schedule>=1.1.0
 python-dotenv>=1.0.0
 myPyllant>=0.9.18
+tinytuya>=1.17.0
 ```
 
 ---
