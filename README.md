@@ -121,7 +121,6 @@ HomeAutomate/
 ├── HomeAutCommon.py             # Shared configuration, logging, and service helpers
 ├── HomeAutTask*.py              # One module per scheduled task
 ├── HomaAutInfluxWrite.py        # InfluxDB write helper
-├── HomeAutomation.py            # Compatibility entry point
 ├── GrafanaDashboard.json # Pre-configured Grafana dashboard
 ├── requirements.txt      # Python dependencies
 ├── .env.example         # Environment variable template (create from .env)
