@@ -2,10 +2,10 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "HomeAutomation (test mode)",
+      "name": "HomeAutomate (test mode)",
       "type": "debugpy",
       "request": "launch",
-      "program": "${workspaceFolder}/HomeAutomation.py",
+      "program": "${workspaceFolder}/HomeAutSchedulerMain.py",
       "console": "integratedTerminal",
       "args": ["--test"]
     }

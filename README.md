@@ -35,9 +35,9 @@ A comprehensive **home automation and energy monitoring system** built on Raspbe
 |                                      HomeAutomate                                      |
 |                                                                                        |
 |  +----------------------------------------------------------------------------------+  |
-|  | HomeAutomation.py                                                                |  |
+|  | HomeAutSchedulerMain.py                                                         |  |
 |  |                                                                                  |  |
-|  | Scheduler ---> Scheduled tasks ---> InfluxWriter ---> InfluxDB 2.x ---> Grafana  |  |
+|  | Scheduler ---> Task modules ---> HomaAutInfluxWrite ---> InfluxDB 2.x ---> Grafana |
 |  |                      |                       ^              |                    |  |
 |  |                      |                       |              |                    |  |
 |  |                      +-- poll APIs            +-- writes     +-- queries         |  |
@@ -54,15 +54,15 @@ A comprehensive **home automation and energy monitoring system** built on Raspbe
 ## Design Principles
 
 ### 1. Consolidated Scheduling
-Instead of multiple cron jobs, **HomeAutomation.py** uses a single Python process with the `schedule` library. This provides:
+Instead of multiple cron jobs, **HomeAutSchedulerMain.py** uses a single Python process with the `schedule` library. This provides:
 - **Centralized control** - One process to monitor and manage
 - **Consistent error handling** - Unified logging and retry logic
 - **Precise timing** - Tasks run at exact minute marks (e.g., :00, :05, :10)
 
-### 2. Independent InfluxDB Writes
-- **Fresh client per write**: `InfluxWriter.write_to_influx()` creates a new `InfluxDBClient` and `write_api` for each write operation
-- **Short-lived connections**: Each write opens, writes, and closes immediately to avoid stale or unrecoverable clients
-- **Reliability over reuse**: This removes the failure mode where a long-lived client becomes stale and is never recovered
+### 2. Shared InfluxDB Client
+- **Client reuse**: `HomeAutCommon.get_influx_client()` reuses a persistent client across task writes
+- **Stale-client recovery**: The shared client is reconnected after one hour to avoid stale connections
+- **Per-write API lifecycle**: `HomaAutInfluxWrite.write_to_influx()` closes the write API it creates while keeping the shared client open
 
 ### 3. Error Handling Strategy
 - **Task-Level Decorators**: `@safe_task` decorator wraps every task with consistent error handling
@@ -116,8 +116,12 @@ Measurements:
 
 ```text
 HomeAutomate/
-├── HomeAutomation.py    # Main application with scheduler and all tasks
-├── InfluxWriter.py      # InfluxDB helper using a fresh client per write
+├── HomeAutSchedulerMain.py       # Scheduling configuration and main loop
+├── HomeAutTestAllTasks.py        # Run each scheduled task once in test mode
+├── HomeAutCommon.py             # Shared configuration, logging, and service helpers
+├── HomeAutTask*.py              # One module per scheduled task
+├── HomaAutInfluxWrite.py        # InfluxDB write helper
+├── HomeAutomation.py            # Compatibility entry point
 ├── GrafanaDashboard.json # Pre-configured Grafana dashboard
 ├── requirements.txt      # Python dependencies
 ├── .env.example         # Environment variable template (create from .env)
@@ -176,14 +180,14 @@ HomeAutomate/
 
 6. **Run the application:**
    ```bash
-   python3 HomeAutomation.py
+   python3 HomeAutSchedulerMain.py
    ```
 
    To run in test mode, which prints each would-be InfluxDB measurement to stdout
    instead of writing it, runs each scheduled task once with a one-second pause
    between tasks, enables debug logging, and then exits, use:
    ```bash
-   python3 HomeAutomation.py --test
+   python3 HomeAutSchedulerMain.py --test
    ```
    This mode still polls configured devices and APIs; InfluxDB-backed calculations
    may read existing data, but the application will not write measurements.
@@ -229,9 +233,11 @@ myPyllant>=0.9.18
 
 ## Code Architecture
 
-### HomeAutomation.py
+### HomeAutSchedulerMain.py
 
-The main application follows a **single-process, scheduled-task** architecture:
+The scheduler follows a **single-process, scheduled-task** architecture. Each scheduled task
+is implemented in its own `HomeAutTask*.py` module, shared services are in
+`HomeAutCommon.py`, and `HomeAutTestAllTasks.py` runs the scheduled tasks once in test mode:
 
 ```python
 # Task Decorator
@@ -239,7 +245,7 @@ The main application follows a **single-process, scheduled-task** architecture:
 def example_task():
     """All tasks use this decorator for consistent error handling."""
     # Read API data, transform it, then write to InfluxDB
-    InfluxWriter.write_to_influx("measurement", "field", value)
+    write_to_influx("measurement", "field", value)
 
 # Scheduler Setup
 def setup_schedule():
@@ -257,7 +263,7 @@ def main():
 
 ### Key Components
 
-#### 1. **InfluxWriter write helper**
+#### 1. **HomaAutInfluxWrite write helper**
 ```python
 def write_to_influx(measurement_name, key1, value1, key2=None, value2=None,
                    key3=None, value3=None, bucket=None, org=None):
@@ -396,16 +402,18 @@ def safe_request(method, url, max_retries=3, timeout=10, **kwargs):
 ### Debug Mode
 Enable verbose logging:
 ```python
-# In HomeAutomation.py, change:
+# In HomeAutCommon.py, change:
 logging.basicConfig(level=logging.DEBUG, ...)
 ```
 
 ### Test Individual Tasks
-You can test individual task functions directly since they're all defined in `HomeAutomation.py`:
+You can test individual task functions by importing them from their task modules:
 
 ```python
 # Import and run specific tasks
-from HomeAutomation import youless_electra_task, youless_gas_task, outside_weather_task
+from HomeAutTaskYoulessElectra import youless_electra_task
+from HomeAutTaskYoulessGas import youless_gas_task
+from HomeAutTaskOutsideWeather import outside_weather_task
 
 # Run manually
 youless_electra_task()
