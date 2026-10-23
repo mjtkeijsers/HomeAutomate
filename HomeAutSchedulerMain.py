@@ -33,8 +33,8 @@ def setup_schedule():
 
     schedule.every(15).minutes.do(outside_weather_task)
     schedule.every().day.at("05:45").do(influx_lowest_power_task)
-    schedule.every(10).minutes.do(qingping_sensor_task)
-    schedule.every(10).minutes.do(vaillant_heating_task)
+    schedule.every(12).minutes.do(qingping_sensor_task)
+    schedule.every(12).minutes.do(vaillant_heating_task)
 
     logger.info("Schedule configured successfully")
 
