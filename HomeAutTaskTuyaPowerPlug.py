@@ -68,7 +68,7 @@ def tuya_power_plug_task():
         return
 
     try:
-        power_watts = float(power_watts)
+        power_watts = float(power_watts) / 10.0
     except (TypeError, ValueError):
         logger.error(
             "Tuya power plug datapoint %r is not numeric: %r",
