@@ -14,6 +14,7 @@ from HomeAutTaskInfluxLowestPower import influx_lowest_power_task
 from HomeAutTaskOutsideWeather import outside_weather_task
 from HomeAutTaskQingpingSensor import qingping_sensor_task
 from HomeAutTaskShellyEM import shelly_em_task
+from HomeAutTaskTuyaPowerPlug import tuya_power_plug_task
 from HomeAutTaskVaillantHeatPump import vaillant_heating_task
 from HomeAutTaskYoulessElectra import youless_electra_task
 from HomeAutTaskYoulessGas import youless_gas_task
@@ -24,6 +25,7 @@ def setup_schedule():
     """Configure all scheduled tasks."""
     schedule.every().minute.at(":00").do(youless_electra_task)
     schedule.every().minute.at(":00").do(shelly_em_task)
+    schedule.every().minute.at(":00").do(tuya_power_plug_task)
 
     for minute in [1, 6, 11, 16, 21, 26, 31, 36, 41, 46, 51, 56]:
         schedule.every().hour.at(f":{minute:02d}").do(youless_gas_task).tag(f"youless_gas_{minute}")

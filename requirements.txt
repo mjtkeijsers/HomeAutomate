@@ -6,3 +6,4 @@ openmeteo-requests>=1.0.0
 schedule>=1.1.0
 python-dotenv>=1.0.0
 myPyllant>=0.9.18
+tinytuya>=1.17.0

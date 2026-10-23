@@ -84,6 +84,7 @@ Instead of multiple cron jobs, **HomeAutSchedulerMain.py** uses a single Python 
 |------|-----------|--------------|--------------|
 | Youless Electra | Every minute (:00) | Youless API | system (p1, p2, pwr) |
 | Shelly EM | Every minute (:00) | Shelly EM Gen3 | shelly (act_power_kw) |
+| Tuya Power Plug | Every minute (:00) | Local Tuya device | tuya_power_plug (act_power_kw) |
 | Youless Gas | Every 5 min (:01, :06, ...) | Youless API | gasmeter (gas) |
 | Influx Gas Rate | Every 5 min (:02, :07, ...) | InfluxDB | gas_actuals (gas_m3_hr) |
 | Lowest Power | Daily at 01:00 | InfluxDB | sluip (low) |
@@ -215,6 +216,11 @@ HomeAutomate/
 | `MYVAILLANT_PASSWORD` | No | - | Vaillant/MyPyllant password |
 | `MYVAILLANT_BRAND` | No | `vaillant` | Heating system brand |
 | `MYVAILLANT_COUNTRY` | No | `netherlands` | Country for API |
+| `TUYA_PP_DEVICE_ID` | No | - | Tuya power plug device ID |
+| `TUYA_PP_DEVICE_LOCALKEY` | No | - | Tuya power plug local key; keep private and store only in `.env` |
+| `TUYA_PP_DEVICE_IP` | No | `192.1.1.1` | Tuya power plug local IP address; replace the placeholder |
+| `TUYA_PP_PROTOCOL_VERSION` | No | `3.3` | Tuya local protocol version for the plug |
+| `TUYA_PP_POWER_DP` | No | `19` | Tuya datapoint ID containing active power in watts |
 
 ### requirements.txt
 ```text
@@ -329,6 +335,14 @@ def safe_request(method, url, max_retries=3, timeout=10, **kwargs):
 - **API**: `http://192.168.1.217/rpc/EM1.GetStatus?id=0` (configurable with `SHELLY_IP`)
 - **Data**: active power in watts, converted to kilowatts
 - **Output**: `shelly` measurement with act_power_kw field
+
+### Tuya Power Plug Task
+- **Frequency**: Every minute at :00
+- **API**: Local Tuya connection using TinyTuya
+- **Configuration**: Set `TUYA_PP_DEVICE_ID` and `TUYA_PP_DEVICE_LOCALKEY` in `.env`; replace the `TUYA_PP_DEVICE_IP` placeholder and confirm the device protocol version and power datapoint for your plug
+- **Data**: Active power datapoint (default DP 19) in watts, converted to kilowatts
+- **Output**: `tuya_power_plug` measurement with `act_power_kw` field
+- **Diagnostics**: Debug logging reports returned datapoints so the configured power DP can be checked; the local key is never logged
 
 ### Youless Gas Task
 - **Frequency**: Every 5 minutes (offset by 1 minute)
