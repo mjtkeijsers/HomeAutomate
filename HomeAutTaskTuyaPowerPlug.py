@@ -22,6 +22,12 @@ def tuya_power_plug_task():
         )
         return
 
+    try:
+        power_dp = int(TUYA_PP_POWER_DP)
+    except ValueError:
+        logger.error("Tuya power plug datapoint ID must be an integer: %r", TUYA_PP_POWER_DP)
+        return
+
     logger.info("Running Tuya power plug task...")
     device = tinytuya.Device(
         TUYA_PP_DEVICE_ID,
@@ -29,6 +35,13 @@ def tuya_power_plug_task():
         TUYA_PP_DEVICE_LOCALKEY,
         version=TUYA_PP_PROTOCOL_VERSION,
     )
+    update_response = device.updatedps([power_dp])
+    logger.debug("Tuya power plug datapoint update response: %r", update_response)
+    if isinstance(update_response, dict) and update_response.get("Error"):
+        raise RuntimeError(
+            f"Tuya power plug datapoint update failed: {update_response['Error']}"
+        )
+
     status = device.status()
 
     if not isinstance(status, dict):
