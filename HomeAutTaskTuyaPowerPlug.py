@@ -42,19 +42,16 @@ def tuya_power_plug_task():
             f"Tuya power plug datapoint update failed: {update_response['Error']}"
         )
 
-    status = device.status()
-
-    if not isinstance(status, dict):
-        logger.error("Tuya power plug returned an invalid status response")
+    if not isinstance(update_response, dict):
+        logger.error("Tuya power plug returned an invalid datapoint update response")
         return
 
-    if status.get("Error"):
-        logger.error("Tuya power plug request failed: %s", status["Error"])
-        return
-
-    dps = status.get("dps")
+    dps = update_response.get("dps")
     if not isinstance(dps, dict):
-        logger.error("Tuya power plug response did not contain datapoints: %r", status)
+        logger.error(
+            "Tuya power plug datapoint update response did not contain datapoints: %r",
+            update_response,
+        )
         return
 
     logger.debug("Tuya power plug datapoints: %r", dps)
