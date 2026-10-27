@@ -13,7 +13,7 @@ import requests
 from dotenv import load_dotenv
 from influxdb_client import InfluxDBClient
 
-import HomaAutInfluxWrite
+import HomeAutInfluxWrite
 
 load_dotenv()
 
