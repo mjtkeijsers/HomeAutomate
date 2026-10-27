@@ -8,6 +8,7 @@ import re
 import sys
 import time
 from functools import wraps
+from logging.handlers import TimedRotatingFileHandler
 
 import requests
 from dotenv import load_dotenv
@@ -21,7 +22,13 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('homeautomation.log'),
+        TimedRotatingFileHandler(
+            'homeautomation.log',
+            when='midnight',
+            interval=1,
+            backupCount=7,
+            encoding='utf-8',
+        ),
         logging.StreamHandler(sys.stdout)
     ]
 )
