@@ -57,6 +57,10 @@ INFLUX_URL = get_env("INFLUX_URL", "http://127.0.0.1:8086")
 INFLUX_TOKEN = get_env("INFLUX_TOKEN")
 INFLUX_ORG = get_env("INFLUX_ORG", "ASML")
 INFLUX_BUCKET = get_env("INFLUX_BUCKET", "youless")
+YOULESS_URL = get_env("YOULESS_URL")
+YOULESS_FALLBACK_URLS = [
+    item.strip() for item in get_env("YOULESS_FALLBACK_URLS", "").split(",") if item.strip()
+]
 TEST_MODE = False
 
 REQUEST_TIMEOUT_DEFAULT = 10
@@ -67,6 +71,32 @@ _influx_client = None
 _influx_client_created_at = None
 _influx_client_max_age = 3600
 _http_session = None
+
+
+def normalize_youless_url(url):
+    """Normalize a Youless endpoint URL so it always resolves to /e."""
+    if url is None:
+        return None
+
+    normalized = str(url).strip()
+    if not normalized:
+        return None
+
+    if normalized.endswith("/e"):
+        return normalized
+
+    return normalized.rstrip("/") + "/e"
+
+
+def get_youless_url_candidates():
+    """Return a priority-ordered list of Youless URLs with a hostname fallback."""
+    candidates = []
+    for value in [YOULESS_URL, *YOULESS_FALLBACK_URLS, "http://youless/e"]:
+        normalized = normalize_youless_url(value)
+        if normalized and normalized not in candidates:
+            candidates.append(normalized)
+
+    return candidates
 
 
 def get_http_session():
@@ -135,7 +165,7 @@ def write_to_influx(
         )
         return
 
-    HomaAutInfluxWrite.write_to_influx(
+    HomeAutInfluxWrite.write_to_influx(
         measurement_name,
         key1,
         value1,
@@ -207,6 +237,25 @@ def safe_request(method, url, max_retries=RETRY_MAX_ATTEMPTS, timeout=REQUEST_TI
 
     logger.error(f"All {max_retries} retry attempts failed for {url}: {last_error}")
     raise last_error
+
+
+def fetch_youless_response(timeout=REQUEST_TIMEOUT_DEFAULT):
+    """Try multiple Youless URLs so DNS failures do not break local polling."""
+    last_error = None
+
+    for url in get_youless_url_candidates():
+        try:
+            logger.debug(f"Trying Youless endpoint: {url}")
+            return safe_request("GET", url, timeout=timeout)
+        except requests.exceptions.RequestException as exc:
+            last_error = exc
+            logger.warning(f"Youless request failed for {url}: {exc}")
+
+    if last_error is not None:
+        raise last_error
+
+    raise requests.exceptions.ConnectionError("No Youless URL candidates were available")
+
 
 def parse_youless_response(response_text):
     """Parse Youless JSON response into a dictionary."""
