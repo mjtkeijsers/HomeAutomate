@@ -1,4 +1,7 @@
 .env
 .env.*
+.env-prd/
 !.env.example
 homeautomation.log
+__pycache__/
+*.py[cod]

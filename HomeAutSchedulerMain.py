@@ -14,6 +14,7 @@ from HomeAutTaskInfluxLowestPower import influx_lowest_power_task
 from HomeAutTaskOutsideWeather import outside_weather_task
 from HomeAutTaskQingpingSensor import qingping_sensor_task
 from HomeAutTaskShellyEM import shelly_em_task
+from HomeAutTaskSolarPower import solar_power_task
 from HomeAutTaskTuyaPowerPlug import tuya_power_plug_task
 from HomeAutTaskVaillantHeatPump import vaillant_heating_task
 from HomeAutTaskYoulessElectra import youless_electra_task
@@ -34,6 +35,7 @@ def setup_schedule():
         schedule.every().hour.at(f":{minute:02d}").do(influx_gas_task).tag(f"influx_gas_{minute}")
 
     schedule.every(15).minutes.do(outside_weather_task)
+    schedule.every(5).minutes.do(solar_power_task)
     schedule.every().day.at("05:45").do(influx_lowest_power_task)
     schedule.every(12).minutes.do(qingping_sensor_task)
     schedule.every(12).minutes.do(vaillant_heating_task)

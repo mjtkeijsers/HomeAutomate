@@ -84,6 +84,7 @@ Instead of multiple cron jobs, **HomeAutSchedulerMain.py** uses a single Python 
 | Task | Frequency | Data Source | Measurements |
 |------|-----------|--------------|--------------|
 | Youless Electra | Every minute (:00) | Youless API | system (p1, p2, pwr) |
+| Solar Power State | Every 5 minutes | Youless API | Logs state changes after three consecutive power readings |
 | Shelly EM | Every minute (:00) | Shelly EM Gen3 | shelly (act_power_kw) |
 | Tuya Power Plug | Every minute (:00) | Local Tuya device | tuya_power_plug (act_power_kw) |
 | Youless Gas | Every 5 min (:01, :06, ...) | Youless API | gasmeter (gas) |
